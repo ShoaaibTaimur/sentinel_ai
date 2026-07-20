@@ -25,11 +25,18 @@ if [ -z "$TAG" ]; then
 fi
 
 echo -e "${GREEN}Found release: ${TAG}${NC}"
+VERSION="${TAG#v}"
 
 if [ "$OS" = "Darwin" ]; then
     echo -e "${BLUE}OS: macOS (${ARCH})${NC}"
     INSTALL_DIR="/Applications"
-    DOWNLOAD_URL="https://github.com/ShoaaibTaimur/sentinel_ai/releases/download/${TAG}/sentinel-ai-mac-${ARCH}.zip"
+    
+    if [ "$ARCH" = "x86_64" ]; then
+        ARCH_NAME="x64"
+    else
+        ARCH_NAME="arm64"
+    fi
+    DOWNLOAD_URL="https://github.com/ShoaaibTaimur/sentinel_ai/releases/download/${TAG}/Sentinel-AI-${VERSION}-${ARCH_NAME}-mac.zip"
     
     echo -e "Downloading: ${DOWNLOAD_URL}"
     curl -L "$DOWNLOAD_URL" -o /tmp/sentinel-ai-mac.zip
@@ -46,7 +53,7 @@ elif [ "$OS" = "Linux" ]; then
     INSTALL_DIR="${HOME}/.local/share/sentinel-ai"
     mkdir -p "$INSTALL_DIR"
     
-    DOWNLOAD_URL="https://github.com/ShoaaibTaimur/sentinel_ai/releases/download/${TAG}/sentinel-ai-linux-${ARCH}.AppImage"
+    DOWNLOAD_URL="https://github.com/ShoaaibTaimur/sentinel_ai/releases/download/${TAG}/Sentinel-AI-${VERSION}.AppImage"
     ICON_URL="https://raw.githubusercontent.com/ShoaaibTaimur/sentinel_ai/main/resources/icon.png"
     
     echo -e "Downloading AppImage: ${DOWNLOAD_URL}"
