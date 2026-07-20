@@ -38,6 +38,11 @@ if [ "$OS" = "Darwin" ]; then
     fi
     DOWNLOAD_URL="https://github.com/ShoaaibTaimur/sentinel_ai/releases/download/${TAG}/Sentinel-AI-${VERSION}-${ARCH_NAME}-mac.zip"
     
+    if pgrep -x "Sentinel AI" > /dev/null; then
+        echo -e "${RED}Error: Sentinel AI is currently running. Please close the app and try again.${NC}"
+        exit 1
+    fi
+    
     echo -e "Downloading: ${DOWNLOAD_URL}"
     curl -L "$DOWNLOAD_URL" -o /tmp/sentinel-ai-mac.zip
     
@@ -55,6 +60,11 @@ elif [ "$OS" = "Linux" ]; then
     
     DOWNLOAD_URL="https://github.com/ShoaaibTaimur/sentinel_ai/releases/download/${TAG}/Sentinel-AI-${VERSION}.AppImage"
     ICON_URL="https://raw.githubusercontent.com/ShoaaibTaimur/sentinel_ai/main/resources/icon.png"
+    
+    if pgrep -f "sentinel-ai.AppImage" > /dev/null; then
+        echo -e "${RED}Error: Sentinel AI is currently running. Please close the app and try again.${NC}"
+        exit 1
+    fi
     
     echo -e "Downloading AppImage: ${DOWNLOAD_URL}"
     curl -L "$DOWNLOAD_URL" -o "$INSTALL_DIR/sentinel-ai.AppImage"
