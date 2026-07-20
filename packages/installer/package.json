@@ -1,0 +1,19 @@
+{
+  "name": "@sentinel-ai/install",
+  "version": "1.0.0",
+  "description": "Installer CLI for Sentinel AI Desktop Assistant",
+  "main": "index.js",
+  "bin": {
+    "sentinel-install": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "sentinel-ai",
+    "installer",
+    "assistant"
+  ],
+  "author": "Sentinel AI Team",
+  "license": "MIT"
+}

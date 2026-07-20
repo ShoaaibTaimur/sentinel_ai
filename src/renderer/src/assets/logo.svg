@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <defs>
+    <!-- Background shield gradient -->
+    <radialGradient id="shieldBg" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#1e1b4b" />
+      <stop offset="100%" stop-color="#0f0b29" />
+    </radialGradient>
+
+    <!-- Outer shield neon border gradient -->
+    <linearGradient id="shieldBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9580ff" />
+      <stop offset="50%" stop-color="#28c840" />
+      <stop offset="100%" stop-color="#ff5f57" />
+    </linearGradient>
+
+    <!-- AI Core gradient -->
+    <linearGradient id="aiCore" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#805ad5" />
+      <stop offset="100%" stop-color="#319795" />
+    </linearGradient>
+
+    <!-- Drop shadows -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Outer Shield Shell -->
+  <path d="M 60,10 
+           C 85,10 102,18 102,42 
+           C 102,74 76,96 60,110 
+           C 44,96 18,74 18,42 
+           C 18,18 35,10 60,10 Z" 
+        fill="url(#shieldBg)" 
+        stroke="url(#shieldBorder)" 
+        stroke-width="3" 
+        filter="url(#glow)" />
+
+  <!-- Inner tech lines / security mesh -->
+  <path d="M 60,10 L 60,110 M 18,42 L 102,42" 
+        stroke="#ffffff" 
+        stroke-opacity="0.05" 
+        stroke-width="1.5" />
+  
+  <!-- Glowing Hexagon / AI Chip Core -->
+  <polygon points="60,38 78,48 78,70 60,80 42,70 42,48" 
+           fill="url(#aiCore)" 
+           fill-opacity="0.85" 
+           stroke="#9580ff" 
+           stroke-width="1.5" 
+           filter="url(#glow)" />
+
+  <!-- Central Sentinel Eye / Core node -->
+  <circle cx="60" cy="59" r="6" fill="#ffffff" filter="url(#glow)" />
+
+  <!-- Branching AI/Neural paths -->
+  <path d="M 60,38 L 60,25" stroke="#9580ff" stroke-width="2" stroke-linecap="round" />
+  <circle cx="60" cy="23" r="2.5" fill="#9580ff" />
+
+  <path d="M 78,48 L 90,41" stroke="#9580ff" stroke-width="2" stroke-linecap="round" />
+  <circle cx="92" cy="40" r="2.5" fill="#9580ff" />
+
+  <path d="M 78,70 L 90,77" stroke="#9580ff" stroke-width="2" stroke-linecap="round" />
+  <circle cx="92" cy="78" r="2.5" fill="#9580ff" />
+
+  <path d="M 60,80 L 60,93" stroke="#9580ff" stroke-width="2" stroke-linecap="round" />
+  <circle cx="60" cy="95" r="2.5" fill="#9580ff" />
+
+  <path d="M 42,70 L 30,77" stroke="#9580ff" stroke-width="2" stroke-linecap="round" />
+  <circle cx="28" cy="78" r="2.5" fill="#9580ff" />
+
+  <path d="M 42,48 L 30,41" stroke="#9580ff" stroke-width="2" stroke-linecap="round" />
+  <circle cx="28" cy="40" r="2.5" fill="#9580ff" />
+</svg>

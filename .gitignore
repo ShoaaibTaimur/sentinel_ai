@@ -1,0 +1,12 @@
+node_modules/
+out/
+dist/
+.DS_Store
+*.log
+.env
+.env.local
+.agents
+.trae
+CONTEXT.md
+plan.txt
+skills-lock.json
