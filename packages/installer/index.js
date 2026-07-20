@@ -133,6 +133,8 @@ async function main() {
   storeData.provider = 'opencode-zen';
   if (!storeData.model) storeData.model = 'gpt-4o';
   if (!storeData.alwaysAllow) storeData.alwaysAllow = [];
+  if (!storeData.settings) storeData.settings = {};
+  storeData.settings.startOnLogin = true;
 
   fs.mkdirSync(configDir, { recursive: true });
   fs.writeFileSync(configPath, encryptStore(storeData));

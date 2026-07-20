@@ -10,14 +10,26 @@ export async function applyAutostartSetting(enabled: boolean): Promise<void> {
 
     if (enabled) {
       const execPath = app.getPath('exe')
+      const appPath = app.getAppPath()
+      const isPackaged = app.isPackaged
+      
+      const execLine = isPackaged
+        ? `Exec="${execPath}"`
+        : `Exec="${execPath}" "${appPath}" --no-sandbox`
+      
+      const iconPath = path.join(appPath, 'resources', 'icon.svg')
+
       const desktopContent = `[Desktop Entry]
 Type=Application
 Version=1.0
 Name=Sentinel AI
 Comment=Sentinel AI Assistant
-Exec="${execPath}"
+${execLine}
+Icon=${iconPath}
 StartupNotify=false
 Terminal=false
+Categories=Utility;
+X-GNOME-Autostart-enabled=true
 `
       try {
         await fs.mkdir(autostartDir, { recursive: true })

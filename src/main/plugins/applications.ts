@@ -153,30 +153,56 @@ export const applicationsPlugin = {
     const queryPath = args.path.trim()
     const ide = (args.ide || 'code').trim().toLowerCase()
 
-    const targetFolder = await findMatchingFolder(queryPath)
-    if (!targetFolder) {
-      return { error: `Directory not found: ${queryPath}` }
+    let target = await findMatchingFileOrFolder(queryPath)
+    if (!target) {
+      if (path.isAbsolute(queryPath)) {
+        try {
+          await fs.stat(queryPath)
+          target = queryPath
+        } catch {}
+      }
     }
 
-    let command = ''
-    if (ide === 'code' || ide === 'vscode' || ide === 'vs code') {
-      command = `code "${targetFolder}"`
-    } else if (ide === 'cursor') {
-      command = `cursor "${targetFolder}"`
-    } else if (ide === 'trae') {
-      command = `trae "${targetFolder}"`
-    } else if (ide === 'windsurf') {
-      command = `windsurf "${targetFolder}"`
-    } else {
-      command = `${ide} "${targetFolder}"`
+    if (!target) {
+      return { error: `File or directory not found: ${queryPath}` }
     }
+
+    const binMap: Record<string, string> = {
+      'code': 'code',
+      'vscode': 'code',
+      'vs code': 'code',
+      'cursor': 'cursor',
+      'trae': 'trae',
+      'windsurf': 'windsurf',
+      'sublime': 'subl',
+      'subl': 'subl',
+      'sublime text': 'subl',
+      'webstorm': 'webstorm',
+      'pycharm': 'pycharm',
+      'clion': 'clion',
+      'intellij': 'idea',
+      'idea': 'idea',
+      'phpstorm': 'phpstorm',
+      'goland': 'goland',
+      'rider': 'rider',
+      'android studio': 'android-studio',
+      'android-studio': 'android-studio',
+      'studio': 'android-studio',
+      'vim': 'vim',
+      'nvim': 'nvim',
+      'neovim': 'nvim',
+      'emacs': 'emacs'
+    }
+
+    const execBin = binMap[ide] || ide
+    const command = `"${execBin}" "${target}"`
 
     try {
       const proc = exec(command)
       proc.unref()
-      return { success: true, message: `Opened project in ${ide}` }
+      return { success: true, message: `Opened in ${execBin}` }
     } catch (err: any) {
-      return { error: `Failed to open project in ${ide}: ${err.message}` }
+      return { error: `Failed to open in ${execBin}: ${err.message}` }
     }
   }
 
@@ -268,10 +294,20 @@ async function findMatchingFolder(query: string): Promise<string | null> {
         if (trimmed) return trimmed
       } catch {}
     } else if (process.platform === 'linux') {
-      const excludePattern = `\\( -path "*/node_modules" -o -path "*/.*" -o -path "*/dist" -o -path "*/out" -o -path "*/build" \\) -prune`
-      const command = `find "${startDir}" ${excludePattern} -o -type d -iname "*${cleanQuery}*" -print -quit`
+      const excludePattern = `\\( -type d \\( -name ".*" ! -name "." ! -name ".." -o -name "node_modules" -o -name "bower_components" -o -name "dist" -o -name "out" -o -name "build" -o -name "target" -o -name "venv" -o -name "env" -o -name "tmp" -o -name "temp" \\) \\) -prune`
+      
+      // Try exact match first
+      let command = `find "${startDir}" ${excludePattern} -o -type d -iname "${cleanQuery}" -print -quit`
       try {
-        const { stdout } = await execPromise(command, { timeout: 3000 })
+        const { stdout } = await execPromise(command, { timeout: 2000 })
+        const trimmed = stdout.trim()
+        if (trimmed) return trimmed
+      } catch {}
+
+      // Fallback to partial match
+      command = `find "${startDir}" ${excludePattern} -o -type d -iname "*${cleanQuery}*" -print -quit`
+      try {
+        const { stdout } = await execPromise(command, { timeout: 2000 })
         const trimmed = stdout.trim()
         if (trimmed) return trimmed
       } catch {}
@@ -373,10 +409,20 @@ async function findMatchingFileOrFolder(query: string): Promise<string | null> {
         if (trimmed) return trimmed
       } catch {}
     } else if (process.platform !== 'win32') {
-      const excludePattern = `\\( -path "*/node_modules" -o -path "*/.*" -o -path "*/dist" -o -path "*/out" -o -path "*/build" \\) -prune`
-      const command = `find "${startDir}" ${excludePattern} -o \\( -type f -o -type d \\) -iname "*${cleanQuery}*" -print -quit`
+      const excludePattern = `\\( -type d \\( -name ".*" ! -name "." ! -name ".." -o -name "node_modules" -o -name "bower_components" -o -name "dist" -o -name "out" -o -name "build" -o -name "target" -o -name "venv" -o -name "env" -o -name "tmp" -o -name "temp" \\) \\) -prune`
+      
+      // Try exact match first
+      let command = `find "${startDir}" ${excludePattern} -o \\( -type f -o -type d \\) -iname "${cleanQuery}" -print -quit`
       try {
-        const { stdout } = await execPromise(command, { timeout: 3000 })
+        const { stdout } = await execPromise(command, { timeout: 2000 })
+        const trimmed = stdout.trim()
+        if (trimmed) return trimmed
+      } catch {}
+
+      // Fallback to partial match
+      command = `find "${startDir}" ${excludePattern} -o \\( -type f -o -type d \\) -iname "*${cleanQuery}*" -print -quit`
+      try {
+        const { stdout } = await execPromise(command, { timeout: 2000 })
         const trimmed = stdout.trim()
         if (trimmed) return trimmed
       } catch {}

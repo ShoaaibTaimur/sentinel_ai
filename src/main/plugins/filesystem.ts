@@ -36,7 +36,7 @@ async function walk(dir: string, pattern: string): Promise<string[]> {
 
   // Linux fast path
   if (process.platform === 'linux') {
-    const excludePattern = `\\( -path "*/node_modules" -o -path "*/.*" -o -path "*/dist" -o -path "*/out" -o -path "*/build" \\) -prune`
+    const excludePattern = `\\( -type d \\( -name ".*" ! -name "." ! -name ".." -o -name "node_modules" -o -name "bower_components" -o -name "dist" -o -name "out" -o -name "build" -o -name "target" -o -name "venv" -o -name "env" -o -name "tmp" -o -name "temp" \\) \\) -prune`
     const command = `find "${cleanDir}" ${excludePattern} -o -type f -iname "${cleanPattern}" -print`
     try {
       const { stdout } = await execPromise(command, { timeout: 5000 })
