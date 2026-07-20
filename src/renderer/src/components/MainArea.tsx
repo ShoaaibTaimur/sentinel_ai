@@ -3,6 +3,9 @@ import type { Page } from '../App'
 import type { ToastMsg } from '../App'
 import HistoryPage from './HistoryPage'
 import PluginsPage from './PluginsPage'
+import ShortcutsPage from './ShortcutsPage'
+import UsagePage from './UsagePage'
+import MarkdownRenderer from './MarkdownRenderer'
 import logoUrl from '../assets/logo.svg'
 
 interface Message { id: string; role: 'user' | 'assistant' | 'system'; content: string; ts: number }
@@ -15,11 +18,22 @@ interface Props {
   addToast: (text: string, type?: ToastMsg['type']) => void
   setConnected: (v: boolean) => void
   onUsageUpdate: (u: TokenUsage) => void
+  usage: TokenUsage | null
+  currentTheme: string
+  setCurrentTheme: (t: string) => void
 }
 
 const BUILT_IN = ['help','models','provider','apikey','plugins','settings','history','clear','about','doctor','exit','context']
 
-export default function MainArea({ page, setPage, addToast, onUsageUpdate }: Props) {
+export default function MainArea({
+  page,
+  setPage,
+  addToast,
+  onUsageUpdate,
+  usage,
+  currentTheme,
+  setCurrentTheme
+}: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -27,13 +41,25 @@ export default function MainArea({ page, setPage, addToast, onUsageUpdate }: Pro
   const [currentConvId, setCurrentConvId] = useState<string | null>(null)
   const [convTitle, setConvTitle] = useState<string>('New Conversation')
   const [createdAt, setCreatedAt] = useState<number | null>(null)
+  const [alwaysAllowed, setAlwaysAllowed] = useState<string[]>([])
+
+  const loadAlwaysAllowed = useCallback(async () => {
+    const list = await window.sentinel.getAlwaysAllow()
+    setAlwaysAllowed(list as string[])
+  }, [])
+
+  useEffect(() => {
+    if (page === 'settings') {
+      loadAlwaysAllowed()
+    }
+  }, [page, loadAlwaysAllowed])
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   // Track whether we're currently accumulating a streamed reply
   const streamingRef = useRef(false)
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, streamingContent])
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, streamingContent, loading])
   useEffect(() => { if (page === 'chat') inputRef.current?.focus() }, [page])
 
   // Stable callbacks so cleanup removes exactly the right ref
@@ -223,6 +249,27 @@ export default function MainArea({ page, setPage, addToast, onUsageUpdate }: Pro
       )
     }
 
+    if (page === 'shortcuts') {
+      return (
+        <div className="main-area">
+          <ShortcutsPage
+            onBack={() => setPage('chat')}
+          />
+        </div>
+      )
+    }
+
+    if (page === 'usage') {
+      return (
+        <div className="main-area">
+          <UsagePage
+            usage={usage}
+            onBack={() => setPage('chat')}
+          />
+        </div>
+      )
+    }
+
     if (page === 'plugins') {
       return (
         <div className="main-area">
@@ -234,12 +281,138 @@ export default function MainArea({ page, setPage, addToast, onUsageUpdate }: Pro
       )
     }
 
+    if (page === 'settings') {
+      return (
+        <div className="main-area">
+          <div className="page settings-page">
+            <h2>Settings</h2>
+            <div className="settings-section">
+              <h3>Appearance</h3>
+              <p className="settings-section-desc">Select an interface theme for Sentinel AI.</p>
+              
+              <div className="themes-grid">
+                <div 
+                  className={`theme-card ${currentTheme === 'tokyo-night' ? 'active' : ''}`}
+                  onClick={async () => {
+                    await window.sentinel.setTheme('tokyo-night')
+                    setCurrentTheme('tokyo-night')
+                    addToast('Theme: Tokyo Night')
+                  }}
+                >
+                  <div className="theme-preview tokyo-night">
+                    <span className="swatch swatch-bg"></span>
+                    <span className="swatch swatch-accent"></span>
+                    <span className="swatch swatch-text"></span>
+                  </div>
+                  <div className="theme-card-info">
+                    <h4>Tokyo Night</h4>
+                    <p>Neon dark theme (Default)</p>
+                  </div>
+                </div>
+
+                <div 
+                  className={`theme-card ${currentTheme === 'light' ? 'active' : ''}`}
+                  onClick={async () => {
+                    await window.sentinel.setTheme('light')
+                    setCurrentTheme('light')
+                    addToast('Theme: Light Mode')
+                  }}
+                >
+                  <div className="theme-preview light">
+                    <span className="swatch swatch-bg"></span>
+                    <span className="swatch swatch-accent"></span>
+                    <span className="swatch swatch-text"></span>
+                  </div>
+                  <div className="theme-card-info">
+                    <h4>Light Mode</h4>
+                    <p>Clean slate white theme</p>
+                  </div>
+                </div>
+
+                <div 
+                  className={`theme-card ${currentTheme === 'cyberpunk' ? 'active' : ''}`}
+                  onClick={async () => {
+                    await window.sentinel.setTheme('cyberpunk')
+                    setCurrentTheme('cyberpunk')
+                    addToast('Theme: Cyberpunk')
+                  }}
+                >
+                  <div className="theme-preview cyberpunk">
+                    <span className="swatch swatch-bg"></span>
+                    <span className="swatch swatch-accent"></span>
+                    <span className="swatch swatch-text"></span>
+                  </div>
+                  <div className="theme-card-info">
+                    <h4>Cyberpunk</h4>
+                    <p>Neon pink & cyan contrast</p>
+                  </div>
+                </div>
+
+                <div 
+                  className={`theme-card ${currentTheme === 'nord' ? 'active' : ''}`}
+                  onClick={async () => {
+                    await window.sentinel.setTheme('nord')
+                    setCurrentTheme('nord')
+                    addToast('Theme: Nord Arctic')
+                  }}
+                >
+                  <div className="theme-preview nord">
+                    <span className="swatch swatch-bg"></span>
+                    <span className="swatch swatch-accent"></span>
+                    <span className="swatch swatch-text"></span>
+                  </div>
+                  <div className="theme-card-info">
+                    <h4>Nord Arctic</h4>
+                    <p>Frosty slate & winter blue</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="settings-section">
+              <h3>🛡️ Always-Allowed Permissions</h3>
+              <p className="settings-section-desc">Manage system commands that you have authorized to execute automatically.</p>
+              
+              <div className="permissions-list">
+                {alwaysAllowed.length === 0 ? (
+                  <div className="perm-empty">
+                    <span className="perm-empty-icon">🛡️</span>
+                    <p>No automatic permissions configured yet.</p>
+                  </div>
+                ) : (
+                  alwaysAllowed.map((act) => (
+                    <div key={act} className="perm-card">
+                      <div className="perm-info">
+                        <span className="perm-action-name">{act}</span>
+                        <span className="perm-origin-tag">Auto-Approved</span>
+                      </div>
+                      <button
+                        className="perm-revoke-btn"
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          await window.sentinel.removeAlwaysAllow(act)
+                          addToast(`Revoked permission for ${act}`)
+                          loadAlwaysAllowed()
+                        }}
+                      >
+                        Revoke
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="main-area">
         <div className="page">
           <h2>{page.charAt(0).toUpperCase() + page.slice(1)}</h2>
           <p className="page-placeholder">
-            {page === 'settings' && 'Settings coming in Phase 2 polish.'}
             {page === 'tasks' && 'Task queue coming soon.'}
             {page === 'about' && 'Sentinel AI v1.0 — Keyboard-first desktop AI assistant.\nProvider: OpenCode Zen (opencode.ai)'}
           </p>
@@ -260,15 +433,27 @@ export default function MainArea({ page, setPage, addToast, onUsageUpdate }: Pro
         )}
         {messages.map(m => (
           <div key={m.id} className={`msg ${m.role}`}>
-            <div className="msg-bubble">{m.content}</div>
+            <div className="msg-bubble">
+              <MarkdownRenderer content={m.content} />
+            </div>
             <span className="msg-time">{new Date(m.ts).toLocaleTimeString()}</span>
           </div>
         ))}
+        {loading && !streamingContent && (
+          <div className="msg assistant thinking">
+            <div className="msg-bubble">
+              <div className="thinking-loader">
+                <span className="dot"></span>
+                <span className="dot"></span>
+                <span className="dot"></span>
+              </div>
+            </div>
+          </div>
+        )}
         {streamingContent && (
           <div className="msg assistant">
             <div className="msg-bubble">
-              {streamingContent}
-              <span className="typing-cursor" />
+              <MarkdownRenderer content={streamingContent} isStreaming={true} />
             </div>
           </div>
         )}

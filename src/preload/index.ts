@@ -33,6 +33,8 @@ const api = {
   deleteConversation: (id: string) => ipcRenderer.invoke('store:deleteConversation', id),
   exportConversation: (conv: unknown) => ipcRenderer.invoke('store:exportConversation', conv),
   hasApiKey: () => ipcRenderer.invoke('store:hasApiKey'),
+  getTheme: () => ipcRenderer.invoke('store:getTheme'),
+  setTheme: (theme: string) => ipcRenderer.invoke('store:setTheme', theme),
 
   // Window
   hideWindow: () => ipcRenderer.invoke('window:hide'),

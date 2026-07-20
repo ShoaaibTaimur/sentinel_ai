@@ -6,7 +6,9 @@ import {
   saveConversation,
   deleteConversation,
   getModel,
-  getApiKey
+  getApiKey,
+  getTheme,
+  setTheme
 } from '../store'
 
 export function setupStoreHandlers(): void {
@@ -15,6 +17,8 @@ export function setupStoreHandlers(): void {
   ipcMain.handle('store:deleteConversation', (_e, id: string) => deleteConversation(id))
   ipcMain.handle('store:getModel', () => getModel())
   ipcMain.handle('store:hasApiKey', () => !!getApiKey())
+  ipcMain.handle('store:getTheme', () => getTheme())
+  ipcMain.handle('store:setTheme', (_e, theme: string) => setTheme(theme))
 
   ipcMain.handle('store:exportConversation', async (_e, conv: any) => {
     const win = getMainWindow()

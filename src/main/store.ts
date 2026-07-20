@@ -25,7 +25,7 @@ export interface Message {
 }
 
 export interface AppSettings {
-  theme: 'dark'
+  theme: string
   fontSize: number
   hotkey: string
   startOnLogin: boolean
@@ -39,7 +39,7 @@ const defaults: StoreSchema = {
   alwaysAllow: [],
   conversations: [],
   settings: {
-    theme: 'dark',
+    theme: 'tokyo-night',
     fontSize: 14,
     hotkey: 'Super+Space',
     startOnLogin: false,
@@ -75,6 +75,14 @@ export function getModel(): string {
 
 export function setModel(model: string): void {
   store.set('model', model)
+}
+
+export function getTheme(): string {
+  return store.get('settings.theme', 'tokyo-night')
+}
+
+export function setTheme(theme: string): void {
+  store.set('settings.theme', theme)
 }
 
 export function getAlwaysAllow(): string[] {

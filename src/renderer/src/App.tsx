@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import TopBar from './components/TopBar'
 import MainArea from './components/MainArea'
 import type { TokenUsage } from './components/MainArea'
-import ContextBar from './components/ContextBar'
-import BottomBar from './components/BottomBar'
 import Sidebar from './components/Sidebar'
 import PermissionDialog from './components/PermissionDialog'
 import ModelSwitcher from './components/ModelSwitcher'
@@ -11,7 +9,7 @@ import Notification from './components/Notification'
 import ApiKeySetup from './components/ApiKeySetup'
 import './styles/app.css'
 
-export type Page = 'chat' | 'tasks' | 'history' | 'plugins' | 'settings' | 'about'
+export type Page = 'chat' | 'tasks' | 'history' | 'plugins' | 'settings' | 'shortcuts' | 'usage' | 'about'
 
 export interface ToastMsg { id: string; text: string; type: 'success' | 'error' | 'info' }
 export interface PermReq { id: string; action: string; command: string; reason: string; risk: 'low' | 'medium' | 'high' }
@@ -27,6 +25,7 @@ export default function App() {
   const [needsApiKey, setNeedsApiKey] = useState(false)
   const [tokenUsage, setTokenUsage] = useState<TokenUsage | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [currentTheme, setCurrentTheme] = useState('tokyo-night')
 
   const addToast = useCallback((text: string, type: ToastMsg['type'] = 'success') => {
     const id = crypto.randomUUID()
@@ -43,6 +42,7 @@ export default function App() {
   useEffect(() => {
     const s = window.sentinel
     s.getModel().then((m: string) => setCurrentModel(m))
+    s.getTheme().then((t: string) => setCurrentTheme(t || 'tokyo-night'))
     s.hasApiKey().then((has: boolean) => {
       setConnected(has)
       if (!has) setNeedsApiKey(true)
@@ -82,16 +82,14 @@ export default function App() {
   }, [sidebarOpen, modelSwitcherOpen, permReq, isFullscreen])
 
   return (
-    <div className={`app-shell ${isFullscreen ? 'fullscreen' : ''}`}>
+    <div className={`app-shell ${isFullscreen ? 'fullscreen' : ''} theme-${currentTheme}`}>
       <TopBar
         model={currentModel}
         connected={connected}
         isFullscreen={isFullscreen}
         onToggleFullscreen={handleToggleFullscreen}
+        usage={tokenUsage}
       />
-
-      {/* Prominent context usage panel — shows after first AI response */}
-      <ContextBar usage={tokenUsage} />
 
       <div className="app-body">
         {sidebarOpen && (
@@ -107,10 +105,11 @@ export default function App() {
           addToast={addToast}
           setConnected={setConnected}
           onUsageUpdate={handleUsageUpdate}
+          usage={tokenUsage}
+          currentTheme={currentTheme}
+          setCurrentTheme={setCurrentTheme}
         />
       </div>
-
-      <BottomBar sidebarOpen={sidebarOpen} />
 
       {modelSwitcherOpen && (
         <ModelSwitcher

@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import type { Page } from '../App'
 
 const ITEMS: { id: Page; icon: string; label: string }[] = [
-  { id: 'chat',     icon: '💬', label: 'Chat'     },
-  { id: 'tasks',    icon: '✅', label: 'Tasks'    },
-  { id: 'history',  icon: '🕑', label: 'History'  },
-  { id: 'plugins',  icon: '🧩', label: 'Plugins'  },
-  { id: 'settings', icon: '⚙️', label: 'Settings' },
-  { id: 'about',    icon: 'ℹ️',  label: 'About'   }
+  { id: 'chat',      icon: '💬', label: 'Chat'      },
+  { id: 'tasks',     icon: '✅', label: 'Tasks'     },
+  { id: 'history',   icon: '🕑', label: 'History'   },
+  { id: 'shortcuts', icon: '⌨️', label: 'Shortcuts' },
+  { id: 'usage',     icon: '📊', label: 'Usage'     },
+  { id: 'plugins',   icon: '🧩', label: 'Plugins'   },
+  { id: 'settings',  icon: '⚙️', label: 'Settings'  },
+  { id: 'about',     icon: 'ℹ️',  label: 'About'     }
 ]
 
 interface Props {
