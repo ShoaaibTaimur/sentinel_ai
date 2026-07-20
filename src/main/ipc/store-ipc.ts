@@ -8,7 +8,9 @@ import {
   getModel,
   getApiKey,
   getTheme,
-  setTheme
+  setTheme,
+  getStartOnLogin,
+  setStartOnLogin
 } from '../store'
 
 export function setupStoreHandlers(): void {
@@ -19,6 +21,8 @@ export function setupStoreHandlers(): void {
   ipcMain.handle('store:hasApiKey', () => !!getApiKey())
   ipcMain.handle('store:getTheme', () => getTheme())
   ipcMain.handle('store:setTheme', (_e, theme: string) => setTheme(theme))
+  ipcMain.handle('store:getStartOnLogin', () => getStartOnLogin())
+  ipcMain.handle('store:setStartOnLogin', (_e, enabled: boolean) => setStartOnLogin(enabled))
 
   ipcMain.handle('store:exportConversation', async (_e, conv: any) => {
     const win = getMainWindow()

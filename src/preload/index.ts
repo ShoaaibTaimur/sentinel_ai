@@ -35,6 +35,8 @@ const api = {
   hasApiKey: () => ipcRenderer.invoke('store:hasApiKey'),
   getTheme: () => ipcRenderer.invoke('store:getTheme'),
   setTheme: (theme: string) => ipcRenderer.invoke('store:setTheme', theme),
+  getStartOnLogin: () => ipcRenderer.invoke('store:getStartOnLogin'),
+  setStartOnLogin: (enabled: boolean) => ipcRenderer.invoke('store:setStartOnLogin', enabled),
 
   // Window
   hideWindow: () => ipcRenderer.invoke('window:hide'),

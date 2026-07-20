@@ -254,5 +254,80 @@ if __name__ == "__main__":
         ? 'Wayland detected. Keyboard simulation is blocked by security policies. Copied content to clipboard. Please focus your target window and press Ctrl+V to paste.'
         : `Copied content to clipboard. Focus ${targetDesc} and paste (Ctrl+V / Cmd+V).`
     }
+  },
+
+  async readActiveFile(): Promise<{ success: boolean; content?: string; filePath?: string; error?: string }> {
+    try {
+      const active = await activeWin()
+      if (!active) {
+        return { success: false, error: 'No active window detected.' }
+      }
+
+      const windowTitle = active.title
+
+      // Extract file path from window title (editors usually show it)
+      const absoluteRegex = /(?:\/[\w\-. \/()]+\.\w+)|(?:[A-Za-z]:\\[\w\-. \\()]+\.\w+)/g
+      const absoluteMatches = windowTitle.match(absoluteRegex)
+      if (absoluteMatches) {
+        for (const match of absoluteMatches) {
+          if (fs.existsSync(match)) {
+            const content = fs.readFileSync(match, 'utf8')
+            return { success: true, content, filePath: match }
+          }
+        }
+      }
+
+      // Try to find by filename extracted from title
+      const nameRegex = /([\w\-]+\.\w+)\b/
+      const nameMatch = windowTitle.match(nameRegex)
+      if (nameMatch) {
+        const filename = nameMatch[1]
+        const workspaceRoot = process.cwd()
+
+        const searchInDir = (dir: string, depth = 0): string | null => {
+          if (depth > 5) return null
+          try {
+            const files = fs.readdirSync(dir)
+            for (const file of files) {
+              if (file === '.git' || file === 'node_modules' || file === 'out' || file === 'dist') continue
+              const full = path.join(dir, file)
+              const stat = fs.statSync(full)
+              if (stat.isDirectory()) {
+                const found = searchInDir(full, depth + 1)
+                if (found) return found
+              } else if (file === filename) {
+                return full
+              }
+            }
+          } catch {}
+          return null
+        }
+
+        const found = searchInDir(workspaceRoot)
+        if (found) {
+          const content = fs.readFileSync(found, 'utf8')
+          return { success: true, content, filePath: found }
+        }
+      }
+
+      return { success: false, error: `Could not locate active file from window title: "${windowTitle}". Please provide a file path.` }
+    } catch (err: any) {
+      return { success: false, error: err.message }
+    }
+  },
+
+  async editFile(args: { path: string; content: string }): Promise<{ success: boolean; filePath?: string; error?: string }> {
+    try {
+      const resolved = path.resolve(args.path)
+
+      if (!fs.existsSync(resolved)) {
+        return { success: false, error: `File not found: ${resolved}` }
+      }
+
+      fs.writeFileSync(resolved, args.content, 'utf8')
+      return { success: true, filePath: resolved }
+    } catch (err: any) {
+      return { success: false, error: err.message }
+    }
   }
 }

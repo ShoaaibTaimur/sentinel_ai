@@ -25,6 +25,28 @@ interface Props {
 
 const BUILT_IN = ['help','models','provider','apikey','plugins','settings','history','clear','about','doctor','exit','context']
 
+const WELCOME_MESSAGES = [
+  "Hey! Sentinel AI here — ready to open projects, search files, or automate your desktop. What can I do?",
+  "Hello! I can open any project in VS Code, Cursor or another IDE — just ask. What shall we tackle today?",
+  "Welcome back! Tell me a file name to find, a folder to open in an IDE, or any task you need done.",
+  "Sentinel AI active. System-wide file search, IDE launching, web browsing — all at your command.",
+  "Greetings! Ask me to open YouTube, find a file, edit code, or launch a project folder. Ready when you are.",
+  "Hey there — your keyboard-first AI assistant is live. What project or file can I open for you?",
+  "Sentinel AI online. I can read your active file, edit it, open browsers, or launch IDEs. What's first?",
+  "Ready! I can find any file by name, open folders in your IDE, or browse the web. Just say the word."
+]
+
+const createWelcomeMessage = (): Message => {
+  const idx = Math.floor(Math.random() * WELCOME_MESSAGES.length)
+  return {
+    id: 'welcome',
+    role: 'assistant',
+    content: WELCOME_MESSAGES[idx],
+    ts: Date.now()
+  }
+}
+
+
 export default function MainArea({
   page,
   setPage,
@@ -34,7 +56,7 @@ export default function MainArea({
   currentTheme,
   setCurrentTheme
 }: Props) {
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>([createWelcomeMessage()])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
@@ -42,17 +64,24 @@ export default function MainArea({
   const [convTitle, setConvTitle] = useState<string>('New Conversation')
   const [createdAt, setCreatedAt] = useState<number | null>(null)
   const [alwaysAllowed, setAlwaysAllowed] = useState<string[]>([])
+  const [startOnLogin, setStartOnLogin] = useState(false)
 
   const loadAlwaysAllowed = useCallback(async () => {
     const list = await window.sentinel.getAlwaysAllow()
     setAlwaysAllowed(list as string[])
   }, [])
 
+  const loadStartOnLogin = useCallback(async () => {
+    const val = await window.sentinel.getStartOnLogin()
+    setStartOnLogin(!!val)
+  }, [])
+
   useEffect(() => {
     if (page === 'settings') {
       loadAlwaysAllowed()
+      loadStartOnLogin()
     }
-  }, [page, loadAlwaysAllowed])
+  }, [page, loadAlwaysAllowed, loadStartOnLogin])
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -60,7 +89,11 @@ export default function MainArea({
   const streamingRef = useRef(false)
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, streamingContent, loading])
-  useEffect(() => { if (page === 'chat') inputRef.current?.focus() }, [page])
+  useEffect(() => {
+    if (!loading && page === 'chat') {
+      inputRef.current?.focus()
+    }
+  }, [loading, page])
 
   // Stable callbacks so cleanup removes exactly the right ref
   const onToken = useCallback((token: string) => {
@@ -89,18 +122,41 @@ export default function MainArea({
   }, [currentConvId, convTitle, createdAt])
 
   const onError = useCallback((err: string) => {
-    setMessages(m => [...m, { id: crypto.randomUUID(), role: 'system', content: `Error: ${err as string}`, ts: Date.now() }])
+    if (err === 'Cancelled by user') {
+      setMessages(prev => {
+        const copy = [...prev]
+        if (copy.length > 0 && copy[copy.length - 1].role === 'assistant') {
+          copy.pop()
+        }
+        if (copy.length > 0 && copy[copy.length - 1].role === 'user') {
+          copy.pop()
+        }
+        if (currentConvId) {
+          const convObj = {
+            id: currentConvId,
+            title: convTitle,
+            createdAt: createdAt || Date.now(),
+            updatedAt: Date.now(),
+            messages: copy.map(msg => ({ id: msg.id, role: msg.role, content: msg.content, ts: msg.ts }))
+          }
+          window.sentinel.saveConversation(convObj)
+        }
+        return copy
+      })
+    } else {
+      setMessages(m => [...m, { id: crypto.randomUUID(), role: 'system', content: `Error: ${err as string}`, ts: Date.now() }])
+    }
     setStreamingContent('')
     streamingRef.current = false
     setLoading(false)
-  }, [])
+  }, [currentConvId, convTitle, createdAt])
 
   const onUsage = useCallback((usage: TokenUsage) => {
     onUsageUpdate(usage)
   }, [onUsageUpdate])
 
   const onClear = useCallback(() => {
-    setMessages([])
+    setMessages([createWelcomeMessage()])
     setCurrentConvId(null)
     setConvTitle('New Conversation')
     setCreatedAt(null)
@@ -144,8 +200,28 @@ export default function MainArea({
   const handleCancel = useCallback(async () => {
     setLoading(false)
     await window.sentinel.cancel()
+    setMessages(prev => {
+      const copy = [...prev]
+      if (copy.length > 0 && copy[copy.length - 1].role === 'assistant') {
+        copy.pop()
+      }
+      if (copy.length > 0 && copy[copy.length - 1].role === 'user') {
+        copy.pop()
+      }
+      if (currentConvId) {
+        const convObj = {
+          id: currentConvId,
+          title: convTitle,
+          createdAt: createdAt || Date.now(),
+          updatedAt: Date.now(),
+          messages: copy.map(msg => ({ id: msg.id, role: msg.role, content: msg.content, ts: msg.ts }))
+        }
+        window.sentinel.saveConversation(convObj)
+      }
+      return copy
+    })
     addToast('Execution cancelled', 'info')
-  }, [addToast])
+  }, [currentConvId, convTitle, createdAt, addToast])
 
   useEffect(() => {
     const handleGlobalEsc = (e: KeyboardEvent) => {
@@ -296,7 +372,7 @@ export default function MainArea({
                   onClick={async () => {
                     await window.sentinel.setTheme('tokyo-night')
                     setCurrentTheme('tokyo-night')
-                    addToast('Theme: Tokyo Night')
+                    addToast('Theme: Dark Mode')
                   }}
                 >
                   <div className="theme-preview tokyo-night">
@@ -305,8 +381,8 @@ export default function MainArea({
                     <span className="swatch swatch-text"></span>
                   </div>
                   <div className="theme-card-info">
-                    <h4>Tokyo Night</h4>
-                    <p>Neon dark theme (Default)</p>
+                    <h4>Dark Mode</h4>
+                    <p>Dark purple neon theme</p>
                   </div>
                 </div>
 
@@ -325,47 +401,36 @@ export default function MainArea({
                   </div>
                   <div className="theme-card-info">
                     <h4>Light Mode</h4>
-                    <p>Clean slate white theme</p>
+                    <p>Clean high-contrast theme</p>
                   </div>
                 </div>
+              </div>
+            </div>
 
-                <div 
-                  className={`theme-card ${currentTheme === 'cyberpunk' ? 'active' : ''}`}
-                  onClick={async () => {
-                    await window.sentinel.setTheme('cyberpunk')
-                    setCurrentTheme('cyberpunk')
-                    addToast('Theme: Cyberpunk')
-                  }}
-                >
-                  <div className="theme-preview cyberpunk">
-                    <span className="swatch swatch-bg"></span>
-                    <span className="swatch swatch-accent"></span>
-                    <span className="swatch swatch-text"></span>
-                  </div>
-                  <div className="theme-card-info">
-                    <h4>Cyberpunk</h4>
-                    <p>Neon pink & cyan contrast</p>
-                  </div>
+            <div className="settings-section">
+              <h3>⚙️ General Settings</h3>
+              <p className="settings-section-desc">Configure application start behaviors.</p>
+              
+              <div className="settings-row">
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '13px', color: 'var(--text-primary)' }}>Start on System Login</h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-dim)' }}>
+                    Automatically launch Sentinel AI when you turn on your computer.
+                  </p>
                 </div>
-
-                <div 
-                  className={`theme-card ${currentTheme === 'nord' ? 'active' : ''}`}
-                  onClick={async () => {
-                    await window.sentinel.setTheme('nord')
-                    setCurrentTheme('nord')
-                    addToast('Theme: Nord Arctic')
-                  }}
-                >
-                  <div className="theme-preview nord">
-                    <span className="swatch swatch-bg"></span>
-                    <span className="swatch swatch-accent"></span>
-                    <span className="swatch swatch-text"></span>
-                  </div>
-                  <div className="theme-card-info">
-                    <h4>Nord Arctic</h4>
-                    <p>Frosty slate & winter blue</p>
-                  </div>
-                </div>
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    checked={startOnLogin}
+                    onChange={async (e) => {
+                      const val = e.target.checked
+                      await window.sentinel.setStartOnLogin(val)
+                      setStartOnLogin(val)
+                      addToast(val ? 'Auto-start enabled' : 'Auto-start disabled')
+                    }}
+                  />
+                  <span className="slider round"></span>
+                </label>
               </div>
             </div>
 
@@ -431,8 +496,14 @@ export default function MainArea({
             <p>Your keyboard-first desktop assistant. Type a command or ask anything.</p>
           </div>
         )}
-        {messages.map(m => (
-          <div key={m.id} className={`msg ${m.role}`}>
+        {messages.map((m, i) => (
+          <div key={m.id} className={`msg ${m.role}`} style={{ animationDelay: `${Math.min(i * 30, 180)}ms` }}>
+            {m.role === 'assistant' && (
+              <div className="msg-header">
+                <img src={logoUrl} className="msg-avatar-img" alt="logo" style={{ width: '20px', height: '20px', flexShrink: 0, filter: 'drop-shadow(0 0 4px var(--accent-dim))' }} />
+                <span className="msg-author">Sentinel</span>
+              </div>
+            )}
             <div className="msg-bubble">
               <MarkdownRenderer content={m.content} />
             </div>
@@ -465,7 +536,7 @@ export default function MainArea({
           <textarea
             ref={inputRef}
             className="prompt-input"
-            placeholder="Ask anything or type a command (help, models, context…)"
+            placeholder="Ask anything — open files, launch IDEs, search, edit code…"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={onKey}

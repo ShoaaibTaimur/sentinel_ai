@@ -1,4 +1,5 @@
 import type { TokenUsage } from './MainArea'
+import logoUrl from '../assets/logo.svg'
 
 interface Props {
   model: string
@@ -30,7 +31,8 @@ export default function TopBar({ model, connected, isFullscreen, onToggleFullscr
   return (
     <div className="topbar">
       <div className="topbar-left">
-        <span className="topbar-logo">Sentinel<span>AI</span></span>
+        <img src={logoUrl} className="topbar-logo-img" alt="logo" style={{ width: '18px', height: '18px', marginRight: '6px', filter: 'drop-shadow(0 0 3px var(--accent-dim))' }} />
+        <span className="topbar-logo">Sentinel<span>AI</span> <small style={{ fontSize: '9px', opacity: 0.6, marginLeft: '4px', fontWeight: 'normal' }}>v1.0</small></span>
         <span className="topbar-sep">·</span>
         <div className="topbar-provider">
           <span className={`status-dot ${connected ? '' : 'offline'}`} />

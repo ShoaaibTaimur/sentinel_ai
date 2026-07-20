@@ -332,6 +332,21 @@ export const TOOLS: ToolDefinition[] = [
   {
     type: 'function',
     function: {
+      name: 'apps_open_project',
+      description: 'Open a project folder/directory in an IDE (e.g. VS Code, Cursor, Trae, Windsurf)',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'The absolute directory path of the project' },
+          ide: { type: 'string', description: 'The IDE to use: "code" (VS Code), "cursor", "trae", "windsurf". Defaults to "code".' }
+        },
+        required: ['path']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'apps_close',
       description: 'Close an open application',
       parameters: {
@@ -384,6 +399,32 @@ export const TOOLS: ToolDefinition[] = [
           }
         },
         required: ['text']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'fs_read_active_file',
+      description: 'Read the content of the currently active/open file in the user\'s code editor or text editor. Use this when the user asks "what\'s in my active file", "read what I have open", or "read the current file".',
+      parameters: {
+        type: 'object',
+        properties: {}
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'fs_edit_file',
+      description: 'Overwrite a file with new full content. Use this for fast, precise file editing when the user asks to edit, update, fix or rewrite a specific file. Always read the file first.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Absolute file path to overwrite' },
+          content: { type: 'string', description: 'The complete new file content to write' }
+        },
+        required: ['path', 'content']
       }
     }
   },
@@ -610,6 +651,12 @@ export const HANDLERS: Record<string, ToolHandler> = {
     reason: (args) => `Launch app or resource: ${args.name}`,
     execute: (args) => applicationsPlugin.launch(args)
   },
+  apps_open_project: {
+    risk: 'medium',
+    action: 'apps:open_project',
+    reason: (args) => `Open project folder ${args.path} in ${args.ide || 'VS Code'}`,
+    execute: (args) => applicationsPlugin.openProject(args)
+  },
   apps_close: {
     risk: 'medium',
     action: 'apps:close',
@@ -633,6 +680,18 @@ export const HANDLERS: Record<string, ToolHandler> = {
     action: 'gui:input',
     reason: (args) => `Insert text or edit active window: "${args.text.substring(0, 60)}..."`,
     execute: (args) => guiPlugin.simulateInput(args)
+  },
+  fs_read_active_file: {
+    risk: 'low',
+    action: 'fs:read_active',
+    reason: () => `Read content of the currently active/open file in your editor`,
+    execute: () => guiPlugin.readActiveFile()
+  },
+  fs_edit_file: {
+    risk: 'medium',
+    action: 'fs:edit',
+    reason: (args) => `Overwrite file with new content: ${args.path}`,
+    execute: (args) => guiPlugin.editFile(args)
   },
   web_fetch: {
     risk: 'low',

@@ -2,6 +2,8 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import * as fs from 'fs/promises'
 import * as path from 'path'
+import * as os from 'os'
+
 
 const execPromise = promisify(exec)
 
@@ -11,17 +13,43 @@ export const applicationsPlugin = {
     const isLinux = process.platform === 'linux'
     const name = args.name.trim()
 
+    const isUrl = name.startsWith('http://') || name.startsWith('https://') || /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/\S*)?$/.test(name)
+    let target = name
+    if (isUrl && !target.startsWith('http://') && !target.startsWith('https://')) {
+      target = `https://${target}`
+    }
+
+    let resolvedPath = name
+    let isLocalFileOrFolder = false
+    if (!isUrl) {
+      try {
+        await fs.stat(name)
+        resolvedPath = path.resolve(name)
+        isLocalFileOrFolder = true
+      } catch {
+        const found = await findMatchingFileOrFolder(name)
+        if (found) {
+          resolvedPath = found
+          isLocalFileOrFolder = true
+        }
+      }
+    }
+
     if (isMac) {
+      if (isUrl || isLocalFileOrFolder) {
+        await execPromise(`open "${resolvedPath}"`)
+        return { success: true, opened: resolvedPath }
+      }
       await execPromise(`open -a "${name}"`)
       return { success: true, launched: name }
     }
 
     if (isLinux) {
-      // 1. Try xdg-open if it looks like a path or URL
-      if (name.startsWith('/') || name.startsWith('http://') || name.startsWith('https://')) {
-        await execPromise(`xdg-open "${name}"`)
-        return { success: true, opened: name }
+      if (isUrl || isLocalFileOrFolder) {
+        await execPromise(`xdg-open "${resolvedPath}"`)
+        return { success: true, opened: resolvedPath }
       }
+
 
       // 2. Try gtk-launch (which uses desktop files)
       try {
@@ -119,7 +147,39 @@ export const applicationsPlugin = {
     }
 
     return []
+  },
+
+  async openProject(args: { path: string; ide?: string }) {
+    const queryPath = args.path.trim()
+    const ide = (args.ide || 'code').trim().toLowerCase()
+
+    const targetFolder = await findMatchingFolder(queryPath)
+    if (!targetFolder) {
+      return { error: `Directory not found: ${queryPath}` }
+    }
+
+    let command = ''
+    if (ide === 'code' || ide === 'vscode' || ide === 'vs code') {
+      command = `code "${targetFolder}"`
+    } else if (ide === 'cursor') {
+      command = `cursor "${targetFolder}"`
+    } else if (ide === 'trae') {
+      command = `trae "${targetFolder}"`
+    } else if (ide === 'windsurf') {
+      command = `windsurf "${targetFolder}"`
+    } else {
+      command = `${ide} "${targetFolder}"`
+    }
+
+    try {
+      const proc = exec(command)
+      proc.unref()
+      return { success: true, message: `Opened project in ${ide}` }
+    } catch (err: any) {
+      return { error: `Failed to open project in ${ide}: ${err.message}` }
+    }
   }
+
 }
 
 // Helper to scan for installed desktop files on Linux
@@ -156,4 +216,214 @@ async function getLinuxDesktopFiles() {
   }
 
   return list
+}
+
+async function findMatchingFolder(query: string): Promise<string | null> {
+  // If absolute path, use it directly
+  if (path.isAbsolute(query)) {
+    try {
+      const stats = await fs.stat(query)
+      if (stats.isDirectory()) {
+        return query
+      }
+    } catch {}
+  }
+
+  const cleanQuery = query.replace(/[\\/]+$/, '').toLowerCase()
+
+  // Build candidate root directories to search in
+  const homedir = os.homedir()
+  const cwd = process.cwd()
+  
+  const searchRoots = new Set<string>()
+  
+  // 1. Sibling & parent directories of current workspace CWD
+  try {
+    searchRoots.add(path.join(cwd, '..'))
+    searchRoots.add(path.join(cwd, '../..'))
+    searchRoots.add(path.join(cwd, '../../..'))
+  } catch {}
+  
+  // 2. Common developer directories
+  searchRoots.add(path.join(homedir, 'Code'))
+  searchRoots.add(path.join(homedir, 'Projects'))
+  searchRoots.add(path.join(homedir, 'Development'))
+  searchRoots.add(homedir)
+  
+  const startDirs = Array.from(searchRoots)
+
+  for (const startDir of startDirs) {
+    if (process.platform === 'darwin') {
+      const command = `mdfind -onlyin "${startDir}" "kMDItemFSName == '*${cleanQuery}*' && kMDItemContentType == 'public.folder'" | head -n 1`
+      try {
+        const { stdout } = await execPromise(command, { timeout: 3000 })
+        const trimmed = stdout.trim()
+        if (trimmed) return trimmed
+      } catch {}
+    } else if (process.platform === 'win32') {
+      const command = `powershell -Command "Get-ChildItem -Path '${startDir}' -Filter '*${cleanQuery}*' -Recurse -Directory -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName"`
+      try {
+        const { stdout } = await execPromise(command, { timeout: 3500 })
+        const trimmed = stdout.trim()
+        if (trimmed) return trimmed
+      } catch {}
+    } else if (process.platform === 'linux') {
+      const excludePattern = `\\( -path "*/node_modules" -o -path "*/.*" -o -path "*/dist" -o -path "*/out" -o -path "*/build" \\) -prune`
+      const command = `find "${startDir}" ${excludePattern} -o -type d -iname "*${cleanQuery}*" -print -quit`
+      try {
+        const { stdout } = await execPromise(command, { timeout: 3000 })
+        const trimmed = stdout.trim()
+        if (trimmed) return trimmed
+      } catch {}
+    }
+
+    const result = await searchDirRecursive(startDir, cleanQuery, 1)
+    if (result) return result
+  }
+  
+  return null
+}
+
+async function searchDirRecursive(dir: string, query: string, depth: number): Promise<string | null> {
+  if (depth > 4) return null
+
+  let entries: fs.Dirent[] = []
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true })
+  } catch {
+    return null
+  }
+
+  // Phase 1: Exact matches in this directory level
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      if (entry.name.toLowerCase() === query) {
+        return path.join(dir, entry.name)
+      }
+    }
+  }
+
+  // Phase 2: Partial matches in this directory level
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      if (entry.name.toLowerCase().includes(query)) {
+        return path.join(dir, entry.name)
+      }
+    }
+  }
+
+  // Phase 3: Recurse into children
+  for (const entry of entries) {
+    if (
+      entry.isDirectory() && 
+      !entry.name.startsWith('.') && 
+      entry.name !== 'node_modules' && 
+      entry.name !== 'dist' && 
+      entry.name !== 'out' &&
+      entry.name !== 'build'
+    ) {
+      const result = await searchDirRecursive(path.join(dir, entry.name), query, depth + 1)
+      if (result) return result
+    }
+  }
+
+  return null
+}
+
+async function findMatchingFileOrFolder(query: string): Promise<string | null> {
+  if (path.isAbsolute(query)) {
+    try {
+      const stats = await fs.stat(query)
+      return query
+    } catch {}
+  }
+
+  const cleanQuery = query.replace(/[\\/]+$/, '').toLowerCase()
+
+  const homedir = os.homedir()
+  const cwd = process.cwd()
+  
+  const searchRoots = new Set<string>()
+  try {
+    searchRoots.add(cwd)
+    searchRoots.add(path.join(cwd, '..'))
+    searchRoots.add(path.join(cwd, '../..'))
+    searchRoots.add(path.join(cwd, '../../..'))
+  } catch {}
+  searchRoots.add(path.join(homedir, 'Code'))
+  searchRoots.add(path.join(homedir, 'Projects'))
+  searchRoots.add(path.join(homedir, 'Development'))
+  searchRoots.add(homedir)
+  
+  const startDirs = Array.from(searchRoots)
+
+  for (const startDir of startDirs) {
+    if (process.platform === 'darwin') {
+      const command = `mdfind -onlyin "${startDir}" "kMDItemFSName == '*${cleanQuery}*'" | head -n 1`
+      try {
+        const { stdout } = await execPromise(command, { timeout: 3000 })
+        const trimmed = stdout.trim()
+        if (trimmed) return trimmed
+      } catch {}
+    } else if (process.platform === 'win32') {
+      const command = `powershell -Command "Get-ChildItem -Path '${startDir}' -Filter '*${cleanQuery}*' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName"`
+      try {
+        const { stdout } = await execPromise(command, { timeout: 3500 })
+        const trimmed = stdout.trim()
+        if (trimmed) return trimmed
+      } catch {}
+    } else if (process.platform !== 'win32') {
+      const excludePattern = `\\( -path "*/node_modules" -o -path "*/.*" -o -path "*/dist" -o -path "*/out" -o -path "*/build" \\) -prune`
+      const command = `find "${startDir}" ${excludePattern} -o \\( -type f -o -type d \\) -iname "*${cleanQuery}*" -print -quit`
+      try {
+        const { stdout } = await execPromise(command, { timeout: 3000 })
+        const trimmed = stdout.trim()
+        if (trimmed) return trimmed
+      } catch {}
+    }
+
+    const result = await searchDirRecursiveFiles(startDir, cleanQuery, 1)
+    if (result) return result
+  }
+  
+  return null
+}
+
+async function searchDirRecursiveFiles(dir: string, query: string, depth: number): Promise<string | null> {
+  if (depth > 4) return null
+
+  let entries: fs.Dirent[] = []
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true })
+  } catch {
+    return null
+  }
+
+  for (const entry of entries) {
+    if (entry.name.toLowerCase() === query) {
+      return path.join(dir, entry.name)
+    }
+  }
+
+  for (const entry of entries) {
+    if (entry.name.toLowerCase().includes(query)) {
+      return path.join(dir, entry.name)
+    }
+  }
+
+  for (const entry of entries) {
+    if (
+      entry.isDirectory() && 
+      !entry.name.startsWith('.') && 
+      entry.name !== 'node_modules' && 
+      entry.name !== 'dist' && 
+      entry.name !== 'out' &&
+      entry.name !== 'build'
+    ) {
+      const result = await searchDirRecursiveFiles(path.join(dir, entry.name), query, depth + 1)
+      if (result) return result
+    }
+  }
+
+  return null
 }

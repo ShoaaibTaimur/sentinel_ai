@@ -1,4 +1,5 @@
 import Store from 'electron-store'
+import { applyAutostartSetting } from './autostart'
 
 interface StoreSchema {
   apiKey: string
@@ -54,6 +55,11 @@ export function setupStore(): void {
     name: 'sentinel-ai',
     defaults,
     encryptionKey: 'sentinel-ai-v1-secure'
+  })
+
+  // Sync autostart setting on boot
+  applyAutostartSetting(getStartOnLogin()).catch((err) => {
+    console.error('Failed to sync autostart setting:', err)
   })
 }
 
@@ -119,4 +125,15 @@ export function saveConversation(conv: Conversation): void {
 export function deleteConversation(id: string): void {
   const convos = getConversations().filter((c) => c.id !== id)
   store.set('conversations', convos)
+}
+
+export function getStartOnLogin(): boolean {
+  return store.get('settings.startOnLogin', false)
+}
+
+export function setStartOnLogin(enabled: boolean): void {
+  store.set('settings.startOnLogin', enabled)
+  applyAutostartSetting(enabled).catch((err) => {
+    console.error('Failed to update autostart setting:', err)
+  })
 }

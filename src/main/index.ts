@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, shell, screen } from 'electron'
+import { app, BrowserWindow, globalShortcut, shell, screen, nativeImage } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { setupHotkey } from './hotkey'
@@ -26,6 +26,9 @@ function createWindow(): BrowserWindow {
   // Match display scale factor for crisp rendering on HiDPI / fractional scaling
   const scaleFactor = screen.getPrimaryDisplay().scaleFactor
 
+  const iconPath = join(__dirname, '../../resources/icon.svg')
+  const appIcon = nativeImage.createFromPath(iconPath)
+
   mainWindow = new BrowserWindow({
     width: 780,
     height: 540,
@@ -40,6 +43,7 @@ function createWindow(): BrowserWindow {
     skipTaskbar: false,
     titleBarStyle: 'hidden',
     backgroundColor: '#00000000',
+    icon: appIcon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,

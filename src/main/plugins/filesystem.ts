@@ -1,22 +1,83 @@
 import * as fs from 'fs/promises'
 import * as path from 'path'
-import { glob } from 'glob' // Let's check if glob or other packages are available, or use a simple recursive walk.
-// Let's implement recursive walk ourselves to avoid depending on external glob if not installed.
+import { exec } from 'child_process'
+import { promisify } from 'util'
+
+const execPromise = promisify(exec)
 
 async function walk(dir: string, pattern: string): Promise<string[]> {
+  const cleanDir = path.resolve(dir)
+  let cleanPattern = pattern
+  if (!cleanPattern.includes('*')) {
+    cleanPattern = `*${cleanPattern}*`
+  }
+
+  // macOS Spotlight fast path
+  if (process.platform === 'darwin') {
+    const command = `mdfind -onlyin "${cleanDir}" "kMDItemFSName == '${cleanPattern}'"`
+    try {
+      const { stdout } = await execPromise(command, { timeout: 4000 })
+      return stdout.split('\n').map(l => l.trim()).filter(Boolean)
+    } catch {
+      // Fallback
+    }
+  }
+
+  // Windows PowerShell fast path
+  if (process.platform === 'win32') {
+    const command = `powershell -Command "Get-ChildItem -Path '${cleanDir}' -Filter '${cleanPattern}' -Recurse -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName"`
+    try {
+      const { stdout } = await execPromise(command, { timeout: 5000 })
+      return stdout.split('\n').map(l => l.trim()).filter(Boolean)
+    } catch {
+      // Fallback
+    }
+  }
+
+  // Linux fast path
+  if (process.platform === 'linux') {
+    const excludePattern = `\\( -path "*/node_modules" -o -path "*/.*" -o -path "*/dist" -o -path "*/out" -o -path "*/build" \\) -prune`
+    const command = `find "${cleanDir}" ${excludePattern} -o -type f -iname "${cleanPattern}" -print`
+    try {
+      const { stdout } = await execPromise(command, { timeout: 5000 })
+      return stdout.split('\n').map(l => l.trim()).filter(Boolean)
+    } catch {
+      // Fallback
+    }
+  }
+
+  return walkJS(cleanDir, pattern, 0)
+}
+
+async function walkJS(dir: string, pattern: string, depth: number): Promise<string[]> {
+  if (depth > 5) return []
   const results: string[] = []
-  const list = await fs.readdir(dir, { withFileTypes: true })
+  
+  let list: fs.Dirent[] = []
+  try {
+    list = await fs.readdir(dir, { withFileTypes: true })
+  } catch {
+    return []
+  }
+  
   const regex = new RegExp(pattern.replace(/\*/g, '.*'), 'i')
 
   for (const file of list) {
     const resPath = path.resolve(dir, file.name)
     if (file.isDirectory()) {
-      try {
-        const sub = await walk(resPath, pattern)
-        results.push(...sub)
-      } catch {
-        // Skip inaccessible dirs
+      if (
+        file.name.startsWith('.') || 
+        file.name === 'node_modules' || 
+        file.name === 'dist' || 
+        file.name === 'out' || 
+        file.name === 'build'
+      ) {
+        continue
       }
+      try {
+        const sub = await walkJS(resPath, pattern, depth + 1)
+        results.push(...sub)
+      } catch {}
     } else {
       if (regex.test(file.name) || regex.test(resPath)) {
         results.push(resPath)
@@ -25,6 +86,7 @@ async function walk(dir: string, pattern: string): Promise<string[]> {
   }
   return results
 }
+
 
 export const filesystemPlugin = {
   async listDir(args: { directory: string }) {

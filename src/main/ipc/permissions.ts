@@ -48,3 +48,11 @@ export async function requestPermission(
     win.webContents.send('permission:request', req)
   })
 }
+
+export function clearPendingPermissions(): void {
+  for (const [id, resolve] of pending.entries()) {
+    resolve('deny')
+  }
+  pending.clear()
+}
+
