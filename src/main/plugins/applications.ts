@@ -244,6 +244,46 @@ async function getLinuxDesktopFiles() {
   return list
 }
 
+function isSafeToSearch(dirPath: string): boolean {
+  try {
+    const resolved = path.resolve(dirPath)
+    const normalized = resolved.replace(/\\/g, '/')
+    const { root } = path.parse(resolved)
+    if (resolved === root || normalized === '/') return false
+    
+    const lower = normalized.toLowerCase()
+    if (
+      lower === '/home' || 
+      lower === '/users' || 
+      lower === 'c:/users' || 
+      lower === 'd:/users'
+    ) {
+      return false
+    }
+    
+    const systemDirs = [
+      '/usr', '/var', '/etc', '/opt', '/boot', '/sys', '/proc', 
+      '/dev', '/run', '/tmp', '/lib', '/lib64', '/media', '/srv',
+      '/sbin', '/bin', '/root'
+    ]
+    if (systemDirs.some(sys => lower === sys || lower.startsWith(sys + '/'))) {
+      return false
+    }
+    
+    if (
+      lower.startsWith('c:/windows') || 
+      lower.startsWith('c:/program files') || 
+      lower.startsWith('c:/programdata')
+    ) {
+      return false
+    }
+    
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function findMatchingFolder(query: string): Promise<string | null> {
   // If absolute path, use it directly
   if (path.isAbsolute(query)) {
@@ -263,18 +303,24 @@ async function findMatchingFolder(query: string): Promise<string | null> {
   
   const searchRoots = new Set<string>()
   
+  const addIfSafe = (dir: string) => {
+    if (isSafeToSearch(dir)) {
+      searchRoots.add(dir)
+    }
+  }
+
   // 1. Sibling & parent directories of current workspace CWD
   try {
-    searchRoots.add(path.join(cwd, '..'))
-    searchRoots.add(path.join(cwd, '../..'))
-    searchRoots.add(path.join(cwd, '../../..'))
+    addIfSafe(path.join(cwd, '..'))
+    addIfSafe(path.join(cwd, '../..'))
+    addIfSafe(path.join(cwd, '../../..'))
   } catch {}
   
   // 2. Common developer directories
-  searchRoots.add(path.join(homedir, 'Code'))
-  searchRoots.add(path.join(homedir, 'Projects'))
-  searchRoots.add(path.join(homedir, 'Development'))
-  searchRoots.add(homedir)
+  addIfSafe(path.join(homedir, 'Code'))
+  addIfSafe(path.join(homedir, 'Projects'))
+  addIfSafe(path.join(homedir, 'Development'))
+  addIfSafe(homedir)
   
   const startDirs = Array.from(searchRoots)
 
@@ -380,16 +426,23 @@ async function findMatchingFileOrFolder(query: string): Promise<string | null> {
   const cwd = process.cwd()
   
   const searchRoots = new Set<string>()
+  
+  const addIfSafe = (dir: string) => {
+    if (isSafeToSearch(dir)) {
+      searchRoots.add(dir)
+    }
+  }
+
   try {
-    searchRoots.add(cwd)
-    searchRoots.add(path.join(cwd, '..'))
-    searchRoots.add(path.join(cwd, '../..'))
-    searchRoots.add(path.join(cwd, '../../..'))
+    addIfSafe(cwd)
+    addIfSafe(path.join(cwd, '..'))
+    addIfSafe(path.join(cwd, '../..'))
+    addIfSafe(path.join(cwd, '../../..'))
   } catch {}
-  searchRoots.add(path.join(homedir, 'Code'))
-  searchRoots.add(path.join(homedir, 'Projects'))
-  searchRoots.add(path.join(homedir, 'Development'))
-  searchRoots.add(homedir)
+  addIfSafe(path.join(homedir, 'Code'))
+  addIfSafe(path.join(homedir, 'Projects'))
+  addIfSafe(path.join(homedir, 'Development'))
+  addIfSafe(homedir)
   
   const startDirs = Array.from(searchRoots)
 

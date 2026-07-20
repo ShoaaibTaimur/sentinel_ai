@@ -3,6 +3,47 @@ import { execSync } from 'child_process'
 import activeWin from 'active-win'
 import fs from 'fs'
 import path from 'path'
+import os from 'os'
+
+function isSafeToSearch(dirPath: string): boolean {
+  try {
+    const resolved = path.resolve(dirPath)
+    const normalized = resolved.replace(/\\/g, '/')
+    const { root } = path.parse(resolved)
+    if (resolved === root || normalized === '/') return false
+    
+    const lower = normalized.toLowerCase()
+    if (
+      lower === '/home' || 
+      lower === '/users' || 
+      lower === 'c:/users' || 
+      lower === 'd:/users'
+    ) {
+      return false
+    }
+    
+    const systemDirs = [
+      '/usr', '/var', '/etc', '/opt', '/boot', '/sys', '/proc', 
+      '/dev', '/run', '/tmp', '/lib', '/lib64', '/media', '/srv',
+      '/sbin', '/bin', '/root'
+    ]
+    if (systemDirs.some(sys => lower === sys || lower.startsWith(sys + '/'))) {
+      return false
+    }
+    
+    if (
+      lower.startsWith('c:/windows') || 
+      lower.startsWith('c:/program files') || 
+      lower.startsWith('c:/programdata')
+    ) {
+      return false
+    }
+    
+    return true
+  } catch {
+    return false
+  }
+}
 
 interface GuiInputArgs {
   text: string
@@ -29,25 +70,28 @@ export const guiPlugin = {
         if (nameMatch) {
           const filename = nameMatch[1]
           const workspaceRoot = process.cwd()
-          const searchInDir = (dir: string): string | null => {
-            const files = fs.readdirSync(dir)
-            for (const file of files) {
-              const full = path.join(dir, file)
-              if (file === '.git' || file === 'node_modules' || file === 'out') continue
-              const stat = fs.statSync(full)
-              if (stat.isDirectory()) {
-                const found = searchInDir(full)
-                if (found) return found
-              } else if (file === filename) {
-                return full
+          if (isSafeToSearch(workspaceRoot) && workspaceRoot !== os.homedir()) {
+            const searchInDir = (dir: string, depth = 0): string | null => {
+              if (depth > 5) return null
+              const files = fs.readdirSync(dir)
+              for (const file of files) {
+                const full = path.join(dir, file)
+                if (file === '.git' || file === 'node_modules' || file === 'out') continue
+                const stat = fs.statSync(full)
+                if (stat.isDirectory()) {
+                  const found = searchInDir(full, depth + 1)
+                  if (found) return found
+                } else if (file === filename) {
+                  return full
+                }
               }
+              return null
             }
-            return null
-          }
-          try {
-            filePath = searchInDir(workspaceRoot)
-          } catch {
-            // Ignore
+            try {
+              filePath = searchInDir(workspaceRoot)
+            } catch {
+              // Ignore
+            }
           }
         }
       }
@@ -283,27 +327,29 @@ if __name__ == "__main__":
       if (nameMatch) {
         const filename = nameMatch[1]
         const workspaceRoot = process.cwd()
+        let found: string | null = null
 
-        const searchInDir = (dir: string, depth = 0): string | null => {
-          if (depth > 5) return null
-          try {
-            const files = fs.readdirSync(dir)
-            for (const file of files) {
-              if (file === '.git' || file === 'node_modules' || file === 'out' || file === 'dist') continue
-              const full = path.join(dir, file)
-              const stat = fs.statSync(full)
-              if (stat.isDirectory()) {
-                const found = searchInDir(full, depth + 1)
-                if (found) return found
-              } else if (file === filename) {
-                return full
+        if (isSafeToSearch(workspaceRoot) && workspaceRoot !== os.homedir()) {
+          const searchInDir = (dir: string, depth = 0): string | null => {
+            if (depth > 5) return null
+            try {
+              const files = fs.readdirSync(dir)
+              for (const file of files) {
+                if (file === '.git' || file === 'node_modules' || file === 'out' || file === 'dist') continue
+                const full = path.join(dir, file)
+                const stat = fs.statSync(full)
+                if (stat.isDirectory()) {
+                  const found = searchInDir(full, depth + 1)
+                  if (found) return found
+                } else if (file === filename) {
+                  return full
+                }
               }
-            }
-          } catch {}
-          return null
+            } catch {}
+            return null
+          }
+          found = searchInDir(workspaceRoot)
         }
-
-        const found = searchInDir(workspaceRoot)
         if (found) {
           const content = fs.readFileSync(found, 'utf8')
           return { success: true, content, filePath: found }
