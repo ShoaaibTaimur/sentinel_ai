@@ -179,13 +179,14 @@ async function main() {
     const desktopPath = path.join(autostartDir, 'sentinel-ai.desktop');
     const execPath = path.join(installDir, 'node_modules', '.bin', 'electron');
     const appEntry = path.join(installDir, '.');
+    const iconPath = path.join(installDir, 'resources', 'icon.svg');
 
     const desktopContent = `[Desktop Entry]
 Type=Application
 Name=Sentinel AI
 Comment=System-wide AI assistant
 Exec=${execPath} ${appEntry} --no-sandbox
-Icon=utilities-terminal
+Icon=${iconPath}
 Terminal=false
 Categories=Utility;
 X-GNOME-Autostart-enabled=true

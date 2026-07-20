@@ -26,7 +26,7 @@ function createWindow(): BrowserWindow {
   // Match display scale factor for crisp rendering on HiDPI / fractional scaling
   const scaleFactor = screen.getPrimaryDisplay().scaleFactor
 
-  const iconPath = join(__dirname, '../../resources/icon.svg')
+  const iconPath = join(__dirname, '../../resources/icon.png')
   const appIcon = nativeImage.createFromPath(iconPath)
 
   mainWindow = new BrowserWindow({
