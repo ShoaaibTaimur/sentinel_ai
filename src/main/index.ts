@@ -6,6 +6,50 @@ import { setupStore } from './store'
 import { setupIPC } from './ipc'
 import { startBackgroundService } from './background-service'
 
+import { execSync } from 'child_process'
+import os from 'os'
+import path from 'path'
+
+// ── Inherit Interactive Shell PATH Environment ────────────────────────────────
+function loadInteractiveShellEnv(): void {
+  if (process.platform === 'win32') return
+  try {
+    const userShell = process.env.SHELL || '/bin/bash'
+    const output = execSync(`${userShell} -ic 'echo __PATH_START__; echo "$PATH"; echo __PATH_END__'`, {
+      encoding: 'utf-8',
+      timeout: 2500
+    })
+    const match = output.match(/__PATH_START__\n([\s\S]*?)\n__PATH_END__/)
+    if (match && match[1]) {
+      const shellPath = match[1].trim()
+      if (shellPath) {
+        const current = (process.env.PATH || '').split(':')
+        const loaded = shellPath.split(':')
+        process.env.PATH = Array.from(new Set([...loaded, ...current])).filter(Boolean).join(':')
+      }
+    }
+  } catch {
+    // Fallback if interactive shell spawn fails
+  }
+
+  const homedir = os.homedir()
+  const extraPaths = [
+    '/usr/local/bin',
+    '/usr/bin',
+    '/bin',
+    '/snap/bin',
+    path.join(homedir, '.local/bin'),
+    path.join(homedir, '.cargo/bin'),
+    path.join(homedir, '.nvm/versions/node'),
+    '/var/lib/flatpak/exports/bin',
+    path.join(homedir, '.local/share/flatpak/exports/bin')
+  ]
+  const existing = (process.env.PATH || '').split(':')
+  process.env.PATH = Array.from(new Set([...existing, ...extraPaths])).filter(Boolean).join(':')
+}
+
+loadInteractiveShellEnv()
+
 // ── Linux HiDPI / fractional scaling fix ──────────────────────────────────────
 // Must run before app.whenReady. Fixes blurry rendering on Zorin/GNOME with
 // 125%/150% display scaling (Chromium renders at 1x and OS upscales otherwise).

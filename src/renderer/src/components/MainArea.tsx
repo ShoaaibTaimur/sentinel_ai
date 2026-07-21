@@ -65,6 +65,7 @@ export default function MainArea({
   const [createdAt, setCreatedAt] = useState<number | null>(null)
   const [alwaysAllowed, setAlwaysAllowed] = useState<string[]>([])
   const [startOnLogin, setStartOnLogin] = useState(false)
+  const [statusText, setStatusText] = useState<string | null>(null)
 
   const loadAlwaysAllowed = useCallback(async () => {
     const list = await window.sentinel.getAlwaysAllow()
@@ -128,9 +129,7 @@ export default function MainArea({
         if (copy.length > 0 && copy[copy.length - 1].role === 'assistant') {
           copy.pop()
         }
-        if (copy.length > 0 && copy[copy.length - 1].role === 'user') {
-          copy.pop()
-        }
+        copy.push({ id: crypto.randomUUID(), role: 'system', content: 'Cancelled', ts: Date.now() })
         if (currentConvId) {
           const convObj = {
             id: currentConvId,
@@ -184,18 +183,42 @@ export default function MainArea({
     })
   }, [currentConvId, convTitle, createdAt])
 
+  const THINKING_STEPS = [
+    'Analyzing request...',
+    'Evaluating system context...',
+    'Processing capabilities...',
+    'Synthesizing plan...'
+  ]
+  const [stepIndex, setStepIndex] = useState(0)
+
+  useEffect(() => {
+    if (!loading || streamingContent) {
+      setStepIndex(0)
+      return
+    }
+    const interval = setInterval(() => {
+      setStepIndex(idx => (idx + 1) % THINKING_STEPS.length)
+    }, 2200)
+    return () => clearInterval(interval)
+  }, [loading, streamingContent])
+
+  const onStatus = useCallback((status: unknown) => {
+    setStatusText(status as string | null)
+  }, [])
+
   useEffect(() => {
     // Register listeners — each returns cleanup fn
     const cleanups = [
       window.sentinel.on('ai:token', onToken as (...args: unknown[]) => void),
-      window.sentinel.on('ai:done', onDone as (...args: unknown[]) => void),
-      window.sentinel.on('ai:error', onError as (...args: unknown[]) => void),
+      window.sentinel.on('ai:done', ((full: string) => { setStatusText(null); onDone(full) }) as (...args: unknown[]) => void),
+      window.sentinel.on('ai:error', ((err: string) => { setStatusText(null); onError(err) }) as (...args: unknown[]) => void),
+      window.sentinel.on('ai:status', onStatus as (...args: unknown[]) => void),
       window.sentinel.on('ai:usage', onUsage as (...args: unknown[]) => void),
-      window.sentinel.on('chat:clear', onClear as (...args: unknown[]) => void),
+      window.sentinel.on('chat:clear', (() => { setStatusText(null); onClear() }) as (...args: unknown[]) => void),
       window.sentinel.on('command:getContext', onCtxGet as (...args: unknown[]) => void),
     ]
     return () => cleanups.forEach(fn => fn())
-  }, [onToken, onDone, onError, onUsage, onClear, onCtxGet])
+  }, [onToken, onDone, onError, onStatus, onUsage, onClear, onCtxGet])
 
   const handleCancel = useCallback(async () => {
     setLoading(false)
@@ -205,9 +228,7 @@ export default function MainArea({
       if (copy.length > 0 && copy[copy.length - 1].role === 'assistant') {
         copy.pop()
       }
-      if (copy.length > 0 && copy[copy.length - 1].role === 'user') {
-        copy.pop()
-      }
+      copy.push({ id: crypto.randomUUID(), role: 'system', content: 'Cancelled', ts: Date.now() })
       if (currentConvId) {
         const convObj = {
           id: currentConvId,
@@ -517,6 +538,7 @@ export default function MainArea({
                 <span className="dot"></span>
                 <span className="dot"></span>
                 <span className="dot"></span>
+                <span className="status-text-pill">{statusText || THINKING_STEPS[stepIndex]}</span>
               </div>
             </div>
           </div>

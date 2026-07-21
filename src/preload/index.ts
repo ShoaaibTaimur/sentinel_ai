@@ -44,6 +44,7 @@ const api = {
   closeWindow: () => ipcRenderer.invoke('window:close'),
   toggleFullscreen: () => ipcRenderer.invoke('window:toggleFullscreen'),
   isFullscreen: () => ipcRenderer.invoke('window:isFullscreen'),
+  platform: process.platform,
 
 
   // Event listeners — returns cleanup fn, use in useEffect return

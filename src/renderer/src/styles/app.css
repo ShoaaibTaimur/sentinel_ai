@@ -37,7 +37,29 @@
   position: relative;
   z-index: 10;
 }
-.topbar-left { display: flex; align-items: center; gap: 10px; }
+.topbar-left { display: flex; align-items: center; gap: 8px; }
+.sidebar-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-md);
+  transition: all var(--fast);
+  -webkit-app-region: no-drag;
+}
+.sidebar-toggle-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.sidebar-toggle-btn.active {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
 .topbar-logo {
   font-weight: 800;
   font-size: 14px;
@@ -1567,6 +1589,30 @@ input:checked + .slider:before {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.status-text-pill {
+  margin-left: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: -0.1px;
+  animation: fadeIn var(--fast) var(--ease);
+}
+
+.free-toggle-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.free-toggle-wrap input {
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 

@@ -1,9 +1,9 @@
-import { exec } from 'child_process'
+import { exec, spawn } from 'child_process'
 import { promisify } from 'util'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import * as os from 'os'
-
+import { shell } from 'electron'
 
 const execPromise = promisify(exec)
 
@@ -11,23 +11,66 @@ export const applicationsPlugin = {
   async launch(args: { name: string }) {
     const isMac = process.platform === 'darwin'
     const isLinux = process.platform === 'linux'
-    const name = args.name.trim()
+    const rawName = args.name.trim()
 
-    const isUrl = name.startsWith('http://') || name.startsWith('https://') || /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/\S*)?$/.test(name)
-    let target = name
+    // 1. Check if user request is asking to open in an IDE (e.g. "sentinelai in cursor", "open project in trae")
+    const ideMap: Record<string, string> = {
+      'cursor': 'cursor',
+      'trae': 'trae',
+      'antigravity': 'antigravity',
+      'windsurf': 'windsurf',
+      'vscode': 'code',
+      'vs code': 'code',
+      'code': 'code',
+      'sublime': 'subl',
+      'subl': 'subl',
+      'webstorm': 'webstorm',
+      'pycharm': 'pycharm'
+    }
+
+    for (const [key, ideVal] of Object.entries(ideMap)) {
+      const regex = new RegExp(`\\b(in|with|using)?\\s*${key}\\b`, 'gi')
+      if (regex.test(rawName)) {
+        const cleanFolderQuery = rawName.replace(regex, '').replace(/\b(open|launch|project|folder|app)\b/gi, '').trim()
+        const targetPath = cleanFolderQuery || os.homedir()
+        return await this.openProject({ path: targetPath, ide: ideVal })
+      }
+    }
+
+    // Clean file manager & directory keywords (e.g. "sentinelai in file manager" -> "sentinelai")
+    const fmKeywords = ['file manager', 'file explorer', 'nautilus', 'dolphin', 'nemo', 'thunar', 'pcmanfm', 'explorer', 'finder', 'folder', 'directory']
+    let cleanQuery = rawName
+    let isFileManagerReq = false
+
+    for (const kw of fmKeywords) {
+      if (cleanQuery.toLowerCase().includes(kw)) {
+        isFileManagerReq = true
+        cleanQuery = cleanQuery.replace(new RegExp(`\\b(in|with|using|the|open)?\\s*${kw}\\b`, 'gi'), '').trim()
+        break
+      }
+    }
+
+    if (isFileManagerReq && !cleanQuery) {
+      const err = await shell.openPath(os.homedir())
+      if (!err) return { success: true, opened: os.homedir(), via: 'shell.openPath' }
+    }
+
+    const searchQuery = cleanQuery || rawName
+    const isUrl = searchQuery.startsWith('http://') || searchQuery.startsWith('https://') || /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/\S*)?$/.test(searchQuery)
+    let target = searchQuery
     if (isUrl && !target.startsWith('http://') && !target.startsWith('https://')) {
       target = `https://${target}`
     }
 
-    let resolvedPath = name
+    let resolvedPath = searchQuery
     let isLocalFileOrFolder = false
     if (!isUrl) {
       try {
-        await fs.stat(name)
-        resolvedPath = path.resolve(name)
+        await fs.stat(searchQuery)
+        resolvedPath = path.resolve(searchQuery)
         isLocalFileOrFolder = true
       } catch {
-        const found = await findMatchingFileOrFolder(name)
+        const found = await findMatchingFileOrFolder(searchQuery)
         if (found) {
           resolvedPath = found
           isLocalFileOrFolder = true
@@ -35,45 +78,59 @@ export const applicationsPlugin = {
       }
     }
 
-    if (isMac) {
-      if (isUrl || isLocalFileOrFolder) {
-        await execPromise(`open "${resolvedPath}"`)
-        return { success: true, opened: resolvedPath }
+    if (isLocalFileOrFolder) {
+      const openErr = await shell.openPath(resolvedPath)
+      if (!openErr) {
+        return { success: true, opened: resolvedPath, via: 'shell.openPath' }
       }
-      await execPromise(`open -a "${name}"`)
-      return { success: true, launched: name }
+    }
+
+    if (isMac) {
+      if (isUrl) {
+        await execPromise(`open "${target}"`)
+        return { success: true, opened: target }
+      }
+      try {
+        await execPromise(`open -a "${rawName}"`)
+        return { success: true, launched: rawName }
+      } catch {
+        return { error: `File or application not found: ${rawName}` }
+      }
     }
 
     if (isLinux) {
-      if (isUrl || isLocalFileOrFolder) {
-        await execPromise(`xdg-open "${resolvedPath}"`)
-        return { success: true, opened: resolvedPath }
+      if (isUrl) {
+        await execPromise(`xdg-open "${target}"`)
+        return { success: true, opened: target }
       }
-
 
       // 2. Try gtk-launch (which uses desktop files)
       try {
-        // Look for desktop file in /usr/share/applications or ~/.local/share/applications
         const desktopFiles = await getLinuxDesktopFiles()
         const match = desktopFiles.find(f => 
-          f.name.toLowerCase() === name.toLowerCase() || 
-          f.id.toLowerCase() === `${name.toLowerCase()}.desktop`
+          f.name.toLowerCase() === rawName.toLowerCase() || 
+          f.id.toLowerCase() === `${rawName.toLowerCase()}.desktop`
         )
         if (match) {
-          await execPromise(`gtk-launch "${match.id}"`)
+          await execPromise(`gtk-launch "${match.id}"`, { env: getEnrichedEnv() })
           return { success: true, launched: match.name, via: 'gtk-launch' }
         }
       } catch {
         // Fallback
       }
 
-      // 3. Fallback: run application as background process
-      const proc = exec(name)
-      proc.unref()
-      return { success: true, launched: name, via: 'spawn' }
+      // 3. Fallback: check if binary exists in PATH before spawning
+      try {
+        await execPromise(`which "${rawName}"`, { env: getEnrichedEnv() })
+        const proc = spawn(rawName, [], { detached: true, stdio: 'ignore', env: getEnrichedEnv() })
+        proc.unref()
+        return { success: true, launched: rawName, via: 'spawn' }
+      } catch {
+        return { error: `File or application not found: ${rawName}` }
+      }
     }
 
-    return { error: 'Unsupported platform' }
+    return { error: `File or application not found: ${rawName}` }
   },
 
   async close(args: { name: string }) {
@@ -173,6 +230,7 @@ export const applicationsPlugin = {
       'vs code': 'code',
       'cursor': 'cursor',
       'trae': 'trae',
+      'antigravity': 'antigravity',
       'windsurf': 'windsurf',
       'sublime': 'subl',
       'subl': 'subl',
@@ -195,15 +253,47 @@ export const applicationsPlugin = {
     }
 
     const execBin = binMap[ide] || ide
-    const command = `"${execBin}" "${target}"`
+    const homedir = os.homedir()
+    const candidates = [
+      execBin,
+      `/usr/bin/${execBin}`,
+      `/usr/local/bin/${execBin}`,
+      path.join(homedir, '.local/bin', execBin),
+      `/snap/bin/${execBin}`
+    ]
 
-    try {
-      const proc = exec(command)
-      proc.unref()
-      return { success: true, message: `Opened in ${execBin}` }
-    } catch (err: any) {
-      return { error: `Failed to open in ${execBin}: ${err.message}` }
+    for (const binPath of candidates) {
+      try {
+        if (binPath.includes('/')) {
+          await fs.access(binPath, fs.constants.X_OK)
+        }
+        const proc = spawn(binPath, [target], {
+          detached: true,
+          stdio: 'ignore',
+          env: getEnrichedEnv()
+        })
+        proc.unref()
+        return { success: true, message: `Opened in ${execBin}` }
+      } catch {}
     }
+
+    if (process.platform === 'linux') {
+      try {
+        const desktopFiles = await getLinuxDesktopFiles()
+        const match = desktopFiles.find(f => 
+          f.name.toLowerCase().includes(execBin) || 
+          f.id.toLowerCase().includes(execBin) ||
+          f.name.toLowerCase().includes(ide) ||
+          f.id.toLowerCase().includes(ide)
+        )
+        if (match) {
+          await execPromise(`gtk-launch "${match.id}" "${target}"`, { env: getEnrichedEnv() })
+          return { success: true, message: `Opened in ${match.name} via gtk-launch` }
+        }
+      } catch {}
+    }
+
+    return { error: `Failed to open in ${execBin}` }
   }
 
 }
@@ -244,6 +334,24 @@ async function getLinuxDesktopFiles() {
   return list
 }
 
+function getEnrichedEnv() {
+  const env = { ...process.env }
+  const homedir = os.homedir()
+  const extraPaths = [
+    '/usr/local/bin',
+    '/usr/bin',
+    '/bin',
+    '/snap/bin',
+    path.join(homedir, '.local/bin'),
+    path.join(homedir, '.cargo/bin'),
+    '/var/lib/flatpak/exports/bin',
+    path.join(homedir, '.local/share/flatpak/exports/bin')
+  ]
+  const currentPath = env.PATH || ''
+  env.PATH = Array.from(new Set([...extraPaths, ...currentPath.split(':')])).filter(Boolean).join(':')
+  return env
+}
+
 function isSafeToSearch(dirPath: string): boolean {
   try {
     const resolved = path.resolve(dirPath)
@@ -256,14 +364,16 @@ function isSafeToSearch(dirPath: string): boolean {
       lower === '/home' || 
       lower === '/users' || 
       lower === 'c:/users' || 
-      lower === 'd:/users'
+      lower === 'd:/users' ||
+      lower === '/mnt' ||
+      lower === '/media'
     ) {
       return false
     }
     
     const systemDirs = [
       '/usr', '/var', '/etc', '/opt', '/boot', '/sys', '/proc', 
-      '/dev', '/run', '/tmp', '/lib', '/lib64', '/media', '/srv',
+      '/dev', '/run', '/tmp', '/lib', '/lib64', '/srv',
       '/sbin', '/bin', '/root'
     ]
     if (systemDirs.some(sys => lower === sys || lower.startsWith(sys + '/'))) {
@@ -316,11 +426,22 @@ async function findMatchingFolder(query: string): Promise<string | null> {
     addIfSafe(path.join(cwd, '../../..'))
   } catch {}
   
-  // 2. Common developer directories
+  // 2. Common developer directories & drive mounts
   addIfSafe(path.join(homedir, 'Code'))
   addIfSafe(path.join(homedir, 'Projects'))
   addIfSafe(path.join(homedir, 'Development'))
   addIfSafe(homedir)
+
+  // 3. Scan mounted media/mnt drives (e.g. /mnt/personal, /media/$USER/*)
+  const mountBases = ['/mnt', '/media', path.join('/media', os.userInfo().username)]
+  for (const mbase of mountBases) {
+    try {
+      const entries = await fs.readdir(mbase)
+      for (const entry of entries) {
+        addIfSafe(path.join(mbase, entry))
+      }
+    } catch {}
+  }
   
   const startDirs = Array.from(searchRoots)
 
@@ -378,7 +499,7 @@ async function searchDirRecursive(dir: string, query: string, depth: number): Pr
 
   // Phase 1: Exact matches in this directory level
   for (const entry of entries) {
-    if (entry.isDirectory()) {
+    if (entry.isDirectory() && !entry.name.startsWith('.')) {
       if (entry.name.toLowerCase() === query) {
         return path.join(dir, entry.name)
       }
@@ -387,7 +508,7 @@ async function searchDirRecursive(dir: string, query: string, depth: number): Pr
 
   // Phase 2: Partial matches in this directory level
   for (const entry of entries) {
-    if (entry.isDirectory()) {
+    if (entry.isDirectory() && !entry.name.startsWith('.')) {
       if (entry.name.toLowerCase().includes(query)) {
         return path.join(dir, entry.name)
       }
@@ -443,6 +564,16 @@ async function findMatchingFileOrFolder(query: string): Promise<string | null> {
   addIfSafe(path.join(homedir, 'Projects'))
   addIfSafe(path.join(homedir, 'Development'))
   addIfSafe(homedir)
+
+  const mountBases = ['/mnt', '/media', path.join('/media', os.userInfo().username)]
+  for (const mbase of mountBases) {
+    try {
+      const entries = await fs.readdir(mbase)
+      for (const entry of entries) {
+        addIfSafe(path.join(mbase, entry))
+      }
+    } catch {}
+  }
   
   const startDirs = Array.from(searchRoots)
 
@@ -499,14 +630,18 @@ async function searchDirRecursiveFiles(dir: string, query: string, depth: number
   }
 
   for (const entry of entries) {
-    if (entry.name.toLowerCase() === query) {
-      return path.join(dir, entry.name)
+    if (!entry.name.startsWith('.')) {
+      if (entry.name.toLowerCase() === query) {
+        return path.join(dir, entry.name)
+      }
     }
   }
 
   for (const entry of entries) {
-    if (entry.name.toLowerCase().includes(query)) {
-      return path.join(dir, entry.name)
+    if (!entry.name.startsWith('.')) {
+      if (entry.name.toLowerCase().includes(query)) {
+        return path.join(dir, entry.name)
+      }
     }
   }
 

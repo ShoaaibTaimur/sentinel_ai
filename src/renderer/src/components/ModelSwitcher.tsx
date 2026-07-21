@@ -10,6 +10,7 @@ interface Props {
 
 export default function ModelSwitcher({ currentModel, onSelect, onClose }: Props) {
   const [models, setModels] = useState<Model[]>([])
+  const [showFreeOnly, setShowFreeOnly] = useState(true)
   const [focused, setFocused] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -22,6 +23,14 @@ export default function ModelSwitcher({ currentModel, onSelect, onClose }: Props
     })
   }, [currentModel])
 
+  const isFreeModel = (m: Model) => {
+    const id = m.id.toLowerCase()
+    const name = (m.name || '').toLowerCase()
+    return id.includes('free') || name.includes('free') || id.includes('flash') || id.includes('mimo') || id.includes('hy3') || id.includes('nemotron') || id.includes('north')
+  }
+
+  const visibleModels = showFreeOnly ? models.filter(isFreeModel) : models
+
   // Scroll focused item into view
   useEffect(() => {
     const item = listRef.current?.children[focused] as HTMLElement | undefined
@@ -30,23 +39,33 @@ export default function ModelSwitcher({ currentModel, onSelect, onClose }: Props
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown') { e.preventDefault(); setFocused(f => Math.min(f + 1, models.length - 1)) }
+      if (e.key === 'ArrowDown') { e.preventDefault(); setFocused(f => Math.min(f + 1, visibleModels.length - 1)) }
       if (e.key === 'ArrowUp')   { e.preventDefault(); setFocused(f => Math.max(f - 1, 0)) }
-      if (e.key === 'Enter')     { e.preventDefault(); if (models[focused]) onSelect(models[focused].id) }
+      if (e.key === 'Enter')     { e.preventDefault(); if (visibleModels[focused]) onSelect(visibleModels[focused].id) }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [focused, models, onSelect])
+  }, [focused, visibleModels, onSelect])
 
   return (
     <div className="overlay" onClick={onClose}>
       <div className="model-panel" onClick={e => e.stopPropagation()}>
         <div className="model-header">
-          <h3>Switch Model</h3>
+          <div>
+            <h3>Switch Model</h3>
+            <label className="free-toggle-wrap">
+              <input
+                type="checkbox"
+                checked={showFreeOnly}
+                onChange={e => { setShowFreeOnly(e.target.checked); setFocused(0) }}
+              />
+              <span>Free Models Only (Default ON)</span>
+            </label>
+          </div>
           <span className="model-hint">↑↓ navigate · Enter select · Esc close</span>
         </div>
         <div className="model-list" ref={listRef}>
-          {models.map((m, i) => (
+          {visibleModels.map((m, i) => (
             <button
               key={m.id}
               className={`model-item ${m.id === currentModel ? 'active' : ''} ${focused === i ? 'focused' : ''}`}

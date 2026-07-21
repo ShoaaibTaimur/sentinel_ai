@@ -38,6 +38,12 @@ export async function requestPermission(
   const alwaysAllow = getAlwaysAllow()
   if (alwaysAllow.includes(req.action)) return true
 
+  // Auto-approve low risk actions (read file, list dir, search, web fetch, focus window)
+  if (req.risk === 'low') return true
+
+  // Auto-approve non-destructive launcher actions (open project in IDE, launch app/URL)
+  if (req.action === 'apps:open_project' || req.action === 'apps:launch' || req.action === 'fs:read') return true
+
   return new Promise((resolve) => {
     pending.set(req.id, (result) => {
       if (result === 'always') {

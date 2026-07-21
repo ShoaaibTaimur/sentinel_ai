@@ -88,6 +88,8 @@ export default function App() {
         connected={connected}
         isFullscreen={isFullscreen}
         onToggleFullscreen={handleToggleFullscreen}
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={() => setSidebarOpen(o => !o)}
         usage={tokenUsage}
       />
 
@@ -131,7 +133,7 @@ export default function App() {
 
       {needsApiKey && (
         <ApiKeySetup
-          onDone={() => { setNeedsApiKey(false); setConnected(true); addToast('API key saved') }}
+          onDone={() => { setNeedsApiKey(false); setConnected(true); addToast('API key saved'); setModelSwitcherOpen(true) }}
         />
       )}
 

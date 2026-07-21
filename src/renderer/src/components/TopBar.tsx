@@ -6,6 +6,8 @@ interface Props {
   connected: boolean
   isFullscreen: boolean
   onToggleFullscreen: () => void
+  sidebarOpen: boolean
+  onToggleSidebar: () => void
   usage: TokenUsage | null
 }
 
@@ -22,7 +24,7 @@ function severityColor(pct: number): string {
   return 'var(--green)'
 }
 
-export default function TopBar({ model, connected, isFullscreen, onToggleFullscreen, usage }: Props) {
+export default function TopBar({ model, connected, isFullscreen, onToggleFullscreen, sidebarOpen, onToggleSidebar, usage }: Props) {
   const pct = usage ? Math.min(100, (usage.totalTokens / usage.contextLimit) * 100) : 0
   const color = usage ? severityColor(pct) : 'var(--border-bright)'
   const strokeDash = 25.12 // 2 * pi * r (r=4)
@@ -31,6 +33,17 @@ export default function TopBar({ model, connected, isFullscreen, onToggleFullscr
   return (
     <div className="topbar">
       <div className="topbar-left">
+        <button
+          className={`sidebar-toggle-btn ${sidebarOpen ? 'active' : ''}`}
+          onClick={onToggleSidebar}
+          title={sidebarOpen ? 'Close Sidebar (Tab)' : 'Open Sidebar (Tab)'}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
         <img src={logoUrl} className="topbar-logo-img" alt="logo" style={{ width: '18px', height: '18px', marginRight: '6px', filter: 'drop-shadow(0 0 3px var(--accent-dim))' }} />
         <span className="topbar-logo">Sentinel<span>AI</span> <small style={{ fontSize: '9px', opacity: 0.6, marginLeft: '4px', fontWeight: 'normal' }}>v1.0</small></span>
         <span className="topbar-sep">·</span>
@@ -88,8 +101,12 @@ export default function TopBar({ model, connected, isFullscreen, onToggleFullscr
         >
           {isFullscreen ? '⤢' : '⤡'}
         </button>
-        <button className="win-btn min" onClick={() => window.sentinel.minimizeWindow()} title="Minimize" />
-        <button className="win-btn close" onClick={() => window.sentinel.hideWindow()} title="Hide (Esc)" />
+        {window.sentinel?.platform !== 'darwin' && (
+          <>
+            <button className="win-btn min" onClick={() => window.sentinel.minimizeWindow()} title="Minimize" />
+            <button className="win-btn close" onClick={() => window.sentinel.hideWindow()} title="Hide (Esc)" />
+          </>
+        )}
       </div>
     </div>
   )

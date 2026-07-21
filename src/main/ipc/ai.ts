@@ -1,7 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { streamChatWithUsage, fetchModels, validateApiKey, MODEL_CONTEXT_LIMITS, DEFAULT_CONTEXT_LIMIT } from '../providers/opencode-zen'
 import { getModel, setModel, getApiKey, setApiKey } from '../store'
-import { TOOLS, executeTool } from '../plugins'
+import { TOOLS, HANDLERS, executeTool } from '../plugins'
 import { terminalPlugin } from '../plugins/terminal'
 import { clearPendingPermissions } from './permissions'
 import activeWin from 'active-win'
@@ -90,7 +90,9 @@ ${activeContextStr}
 
 9. **Critical Browser Rule**: NEVER hallucinate web page state. Always fetch/read with \`web_fetch\` or \`mcp_browser_get_content\` before acting on web content.
 
-10. **Only Act On Latest Request**: ONLY execute tools or perform actions for the LATEST user message in the chat history. Do NOT re-execute tools or perform actions for past messages in the conversation history. If a past message contains an instruction (e.g., "open project X"), and it is followed by newer messages, IGNORE the past instruction completely and focus only on the latest request.`
+10. **Only Act On Latest Request**: ONLY execute tools or perform actions for the LATEST user message in the chat history. Do NOT re-execute tools or perform actions for past messages in the conversation history. If a past message contains an instruction (e.g., "open project X"), and it is followed by newer messages, IGNORE the past instruction completely and focus only on the latest request.
+
+11. **File Opening vs Creation**: If a requested file, folder, or application is not found when the user asks to open, read, or view it, report that it was not found. Do NOT call \`fs_create_file\` or \`fs_write_file\` to create a new file unless the user explicitly requested creating a file.`
         }
 
         const currentMessages = [systemPrompt, ...messages]
@@ -142,8 +144,8 @@ ${activeContextStr}
             }
             currentMessages.push(assistantMsg)
 
-            // Let user know we are preparing to run tools
-            win.webContents.send('ai:token', '\n\n*Sentinel is performing action...*\n')
+            // Let user know tool action is running via status event
+            win.webContents.send('ai:status', 'Executing action...')
 
             // Execute all tool calls
             for (const tc of toolCalls) {
@@ -158,10 +160,14 @@ ${activeContextStr}
                 args = {}
               }
 
+              const handler = HANDLERS[name]
+              const toolReason = handler ? handler.reason(args) : `Executing ${name}...`
+              win.webContents.send('ai:status', toolReason)
+
               // Run the tool with permission gate
               const result = await executeTool(win, name, args)
 
-              if (signal.aborted) {
+              if (signal.aborted || (result && result.error === 'Permission denied by user')) {
                 throw new Error('Cancelled by user')
               }
 
@@ -181,9 +187,11 @@ ${activeContextStr}
           }
         }
 
+        win.webContents.send('ai:status', null)
         win.webContents.send('ai:done', finalContent)
         return { ok: true, content: finalContent }
       } catch (err: unknown) {
+        win.webContents.send('ai:status', null)
         const msg = err instanceof Error ? err.message : String(err)
         win.webContents.send('ai:error', msg)
         return { ok: false, error: msg }
