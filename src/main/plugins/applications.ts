@@ -360,16 +360,6 @@ function isSafeToSearch(dirPath: string): boolean {
     if (resolved === root || normalized === '/') return false
     
     const lower = normalized.toLowerCase()
-    if (
-      lower === '/home' || 
-      lower === '/users' || 
-      lower === 'c:/users' || 
-      lower === 'd:/users' ||
-      lower === '/mnt' ||
-      lower === '/media'
-    ) {
-      return false
-    }
     
     const systemDirs = [
       '/usr', '/var', '/etc', '/opt', '/boot', '/sys', '/proc', 
@@ -410,6 +400,7 @@ async function findMatchingFolder(query: string): Promise<string | null> {
   // Build candidate root directories to search in
   const homedir = os.homedir()
   const cwd = process.cwd()
+  const isPackagedApp = cwd === '/' || cwd.includes('.app/Contents') || cwd.includes('/resources/app') || cwd.endsWith('/out') || cwd.endsWith('/dist')
   
   const searchRoots = new Set<string>()
   
@@ -419,18 +410,24 @@ async function findMatchingFolder(query: string): Promise<string | null> {
     }
   }
 
-  // 1. Sibling & parent directories of current workspace CWD
-  try {
-    addIfSafe(path.join(cwd, '..'))
-    addIfSafe(path.join(cwd, '../..'))
-    addIfSafe(path.join(cwd, '../../..'))
-  } catch {}
+  // 1. Sibling & parent directories of current workspace CWD (if valid project workspace)
+  if (!isPackagedApp) {
+    try {
+      addIfSafe(cwd)
+      addIfSafe(path.join(cwd, '..'))
+      addIfSafe(path.join(cwd, '../..'))
+      addIfSafe(path.join(cwd, '../../..'))
+    } catch {}
+  }
   
-  // 2. Common developer directories & drive mounts
+  // 2. Common developer directories & user homedir
+  addIfSafe(homedir)
+  addIfSafe(path.join(homedir, 'Desktop'))
+  addIfSafe(path.join(homedir, 'Documents'))
+  addIfSafe(path.join(homedir, 'Downloads'))
   addIfSafe(path.join(homedir, 'Code'))
   addIfSafe(path.join(homedir, 'Projects'))
   addIfSafe(path.join(homedir, 'Development'))
-  addIfSafe(homedir)
 
   // 3. Scan mounted media/mnt drives (e.g. /mnt/personal, /media/$USER/*)
   const mountBases = ['/mnt', '/media', path.join('/media', os.userInfo().username)]
@@ -440,6 +437,16 @@ async function findMatchingFolder(query: string): Promise<string | null> {
       for (const entry of entries) {
         addIfSafe(path.join(mbase, entry))
       }
+    } catch {}
+  }
+
+  // macOS system-wide Spotlight fast-path check first
+  if (process.platform === 'darwin') {
+    const sysCmd = `mdfind "kMDItemFSName == '*${cleanQuery}*' && kMDItemContentType == 'public.folder'" | head -n 1`
+    try {
+      const { stdout } = await execPromise(sysCmd, { timeout: 3000 })
+      const trimmed = stdout.trim()
+      if (trimmed) return trimmed
     } catch {}
   }
   
@@ -545,6 +552,7 @@ async function findMatchingFileOrFolder(query: string): Promise<string | null> {
 
   const homedir = os.homedir()
   const cwd = process.cwd()
+  const isPackagedApp = cwd === '/' || cwd.includes('.app/Contents') || cwd.includes('/resources/app') || cwd.endsWith('/out') || cwd.endsWith('/dist')
   
   const searchRoots = new Set<string>()
   
@@ -554,16 +562,22 @@ async function findMatchingFileOrFolder(query: string): Promise<string | null> {
     }
   }
 
-  try {
-    addIfSafe(cwd)
-    addIfSafe(path.join(cwd, '..'))
-    addIfSafe(path.join(cwd, '../..'))
-    addIfSafe(path.join(cwd, '../../..'))
-  } catch {}
+  if (!isPackagedApp) {
+    try {
+      addIfSafe(cwd)
+      addIfSafe(path.join(cwd, '..'))
+      addIfSafe(path.join(cwd, '../..'))
+      addIfSafe(path.join(cwd, '../../..'))
+    } catch {}
+  }
+
+  addIfSafe(homedir)
+  addIfSafe(path.join(homedir, 'Desktop'))
+  addIfSafe(path.join(homedir, 'Documents'))
+  addIfSafe(path.join(homedir, 'Downloads'))
   addIfSafe(path.join(homedir, 'Code'))
   addIfSafe(path.join(homedir, 'Projects'))
   addIfSafe(path.join(homedir, 'Development'))
-  addIfSafe(homedir)
 
   const mountBases = ['/mnt', '/media', path.join('/media', os.userInfo().username)]
   for (const mbase of mountBases) {
@@ -572,6 +586,16 @@ async function findMatchingFileOrFolder(query: string): Promise<string | null> {
       for (const entry of entries) {
         addIfSafe(path.join(mbase, entry))
       }
+    } catch {}
+  }
+
+  // macOS system-wide Spotlight fast-path check first
+  if (process.platform === 'darwin') {
+    const sysCmd = `mdfind "kMDItemFSName == '*${cleanQuery}*'" | head -n 1`
+    try {
+      const { stdout } = await execPromise(sysCmd, { timeout: 3000 })
+      const trimmed = stdout.trim()
+      if (trimmed) return trimmed
     } catch {}
   }
   

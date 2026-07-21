@@ -134,6 +134,11 @@ app.whenReady().then(() => {
   setupIPC(win)
   startBackgroundService(win)
 
+  if (win) {
+    win.show()
+    win.focus()
+  }
+
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

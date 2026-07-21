@@ -47,9 +47,10 @@ export function setupAIHandlers(win: BrowserWindow): void {
 
         const systemPrompt = {
           role: 'system',
-          content: `You are Sentinel AI, a keyboard-first, system-wide desktop AI assistant.
+          content: `You are Sentinel AI, a keyboard-first, system-wide desktop AI assistant created and developed by Md Shoaaib Taimur (Portfolio: https://taimur.dev).
 Platform: ${process.platform} (${process.arch})
 Home: ${require('os').homedir()}
+Developer: Md Shoaaib Taimur (https://taimur.dev)
 ${activeContextStr}
 
 ## Capabilities & Strict Rules
@@ -92,12 +93,15 @@ ${activeContextStr}
 
 10. **Only Act On Latest Request**: ONLY execute tools or perform actions for the LATEST user message in the chat history. Do NOT re-execute tools or perform actions for past messages in the conversation history. If a past message contains an instruction (e.g., "open project X"), and it is followed by newer messages, IGNORE the past instruction completely and focus only on the latest request.
 
-11. **File Opening vs Creation**: If a requested file, folder, or application is not found when the user asks to open, read, or view it, report that it was not found. Do NOT call \`fs_create_file\` or \`fs_write_file\` to create a new file unless the user explicitly requested creating a file.`
+11. **File Opening vs Creation**: If a requested file, folder, or application is not found when the user asks to open, read, or view it, report that it was not found. Do NOT call \`fs_create_file\` or \`fs_write_file\` to create a new file unless the user explicitly requested creating a file.
+
+12. **System-Wide Deep File Search**: You have full system access to find files anywhere on the OS, including deeply nested directories. Search from home (\`~\`) or root (\`/\`) using \`fs_search\`. If no matches are found, report explicitly to the user that the file was not found on the system after a deep search.`
         }
 
         const currentMessages = [systemPrompt, ...messages]
         let loop = true
         let finalContent = ''
+        let accumulatedContent = ''
 
         while (loop) {
           if (signal.aborted) {
@@ -129,6 +133,10 @@ ${activeContextStr}
                 contextLimit
               })
             }
+          }
+
+          if (content) {
+            accumulatedContent += (accumulatedContent && !accumulatedContent.endsWith('\n') ? '\n\n' : '') + content
           }
 
           if (signal.aborted) {
@@ -182,7 +190,7 @@ ${activeContextStr}
             // Continue loop with updated messages history containing tool outputs
           } else {
             // No tool calls, we are done
-            finalContent = content
+            finalContent = accumulatedContent || content
             loop = false
           }
         }

@@ -16,10 +16,11 @@ async function walk(dir: string, pattern: string): Promise<string[]> {
   if (process.platform === 'darwin') {
     const command = `mdfind -onlyin "${cleanDir}" "kMDItemFSName == '${cleanPattern}'"`
     try {
-      const { stdout } = await execPromise(command, { timeout: 4000 })
-      return stdout.split('\n').map(l => l.trim()).filter(Boolean)
+      const { stdout } = await execPromise(command, { timeout: 5000 })
+      const res = stdout.split('\n').map(l => l.trim()).filter(Boolean)
+      if (res.length > 0) return res
     } catch {
-      // Fallback
+      // Fallback to find
     }
   }
 
@@ -27,20 +28,23 @@ async function walk(dir: string, pattern: string): Promise<string[]> {
   if (process.platform === 'win32') {
     const command = `powershell -Command "Get-ChildItem -Path '${cleanDir}' -Filter '${cleanPattern}' -Recurse -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName"`
     try {
-      const { stdout } = await execPromise(command, { timeout: 5000 })
-      return stdout.split('\n').map(l => l.trim()).filter(Boolean)
+      const { stdout } = await execPromise(command, { timeout: 6000 })
+      const res = stdout.split('\n').map(l => l.trim()).filter(Boolean)
+      if (res.length > 0) return res
     } catch {
       // Fallback
     }
   }
 
-  // Linux fast path
-  if (process.platform === 'linux') {
-    const excludePattern = `\\( -type d \\( -name ".*" ! -name "." ! -name ".." -o -name "node_modules" -o -name "bower_components" -o -name "dist" -o -name "out" -o -name "build" -o -name "target" -o -name "venv" -o -name "env" -o -name "tmp" -o -name "temp" \\) \\) -prune`
+  // Linux & macOS deep find path
+  if (process.platform === 'linux' || process.platform === 'darwin') {
+    // Only exclude heavy build caches — DO NOT exclude hidden dot directories like .config, .local, etc.
+    const excludePattern = `\\( -type d \\( -name "node_modules" -o -name ".git" -o -name "dist" -o -name "out" -o -name "build" \\) \\) -prune`
     const command = `find "${cleanDir}" ${excludePattern} -o -type f -iname "${cleanPattern}" -print`
     try {
-      const { stdout } = await execPromise(command, { timeout: 5000 })
-      return stdout.split('\n').map(l => l.trim()).filter(Boolean)
+      const { stdout } = await execPromise(command, { timeout: 8000 })
+      const res = stdout.split('\n').map(l => l.trim()).filter(Boolean)
+      if (res.length > 0) return res
     } catch {
       // Fallback
     }
@@ -160,7 +164,19 @@ export const filesystemPlugin = {
   async searchFiles(args: { pattern: string; directory: string }) {
     const dir = path.resolve(args.directory)
     const results = await walk(dir, args.pattern)
-    return results.slice(0, 50) // Limit to top 50 matches
+    if (results.length === 0) {
+      return {
+        success: false,
+        count: 0,
+        results: [],
+        message: `No files found matching pattern "${args.pattern}" in directory "${dir}". Deep system search completed.`
+      }
+    }
+    return {
+      success: true,
+      count: results.length,
+      results: results.slice(0, 50)
+    }
   },
 
   async findDuplicates(args: { directory: string }) {

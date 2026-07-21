@@ -96,6 +96,13 @@ export default function MainArea({
     }
   }, [loading, page])
 
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto'
+      inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 180)}px`
+    }
+  }, [input])
+
   // Stable callbacks so cleanup removes exactly the right ref
   const onToken = useCallback((token: string) => {
     streamingRef.current = true
@@ -311,7 +318,22 @@ export default function MainArea({
     await save(updated)
 
     setLoading(true)
-    const history = updated.map(m => ({ role: m.role as 'user' | 'assistant' | 'system', content: m.content }))
+    // Filter out cancelled requests and system Cancelled notices from history sent to LLM
+    const validMessages: Message[] = []
+    for (let i = 0; i < updated.length; i++) {
+      const msg = updated[i]
+      const nextMsg = updated[i + 1]
+      if (msg.role === 'user' && nextMsg && nextMsg.role === 'system' && nextMsg.content === 'Cancelled') {
+        i++ // skip both cancelled user prompt and Cancelled system notice
+        continue
+      }
+      if (msg.role === 'system' && msg.content === 'Cancelled') {
+        continue
+      }
+      validMessages.push(msg)
+    }
+
+    const history = validMessages.map(m => ({ role: m.role as 'user' | 'assistant' | 'system', content: m.content }))
     // Fire-and-forget: response comes via ai:done event
     window.sentinel.chat(history).catch((err: unknown) => {
       console.error('chat error', err)
@@ -494,13 +516,45 @@ export default function MainArea({
       )
     }
 
+    if (page === 'about') {
+      return (
+        <div className="main-area">
+          <div className="page about-page" style={{ padding: '24px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '16px' }}>About Sentinel AI</h2>
+            <div className="about-card" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '12px', padding: '20px 24px', maxWidth: '540px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
+                <img src={logoUrl} alt="Sentinel AI" style={{ width: '42px', height: '42px' }} />
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>Sentinel AI v1.0.2</h3>
+                  <span style={{ fontSize: '12.5px', color: 'var(--text-dim)' }}>Keyboard-first, system-wide desktop AI assistant</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>Developer:</strong>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Md Shoaaib Taimur</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>Portfolio:</strong>
+                  <a href="https://taimur.dev" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>taimur.dev</a>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>AI Infrastructure:</strong>
+                  <span style={{ color: 'var(--text-dim)' }}>OpenCode Zen (opencode.ai)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="main-area">
         <div className="page">
           <h2>{page.charAt(0).toUpperCase() + page.slice(1)}</h2>
           <p className="page-placeholder">
             {page === 'tasks' && 'Task queue coming soon.'}
-            {page === 'about' && 'Sentinel AI v1.0 — Keyboard-first desktop AI assistant.\nProvider: OpenCode Zen (opencode.ai)'}
           </p>
         </div>
       </div>
@@ -525,6 +579,21 @@ export default function MainArea({
                 <span className="msg-author">Sentinel</span>
               </div>
             )}
+            {m.role === 'user' && (
+              <div className="msg-header user-msg-header">
+                <span className="msg-author">You</span>
+                <button
+                  className="copy-user-btn"
+                  onClick={() => {
+                    navigator.clipboard.writeText(m.content)
+                    addToast('Message copied to clipboard', 'info')
+                  }}
+                  title="Copy your prompt"
+                >
+                  📋 Copy
+                </button>
+              </div>
+            )}
             <div className="msg-bubble">
               <MarkdownRenderer content={m.content} />
             </div>
@@ -538,7 +607,14 @@ export default function MainArea({
                 <span className="dot"></span>
                 <span className="dot"></span>
                 <span className="dot"></span>
-                <span className="status-text-pill">{statusText || THINKING_STEPS[stepIndex]}</span>
+                <span className="status-text-pill" key={statusText || stepIndex}>
+                  <span className="status-label">{statusText || THINKING_STEPS[stepIndex]}</span>
+                  <span className="status-dots">
+                    <span className="sdot">.</span>
+                    <span className="sdot">.</span>
+                    <span className="sdot">.</span>
+                  </span>
+                </span>
               </div>
             </div>
           </div>
@@ -547,6 +623,21 @@ export default function MainArea({
           <div className="msg assistant">
             <div className="msg-bubble">
               <MarkdownRenderer content={streamingContent} isStreaming={true} />
+              {loading && (
+                <div className="thinking-loader" style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+                  <span className="dot"></span>
+                  <span className="dot"></span>
+                  <span className="dot"></span>
+                  <span className="status-text-pill" key={statusText || stepIndex}>
+                    <span className="status-label">{statusText || THINKING_STEPS[stepIndex]}</span>
+                    <span className="status-dots">
+                      <span className="sdot">.</span>
+                      <span className="sdot">.</span>
+                      <span className="sdot">.</span>
+                    </span>
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         )}

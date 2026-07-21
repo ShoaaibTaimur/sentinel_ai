@@ -26,6 +26,9 @@ export default function ModelSwitcher({ currentModel, onSelect, onClose }: Props
   const isFreeModel = (m: Model) => {
     const id = m.id.toLowerCase()
     const name = (m.name || '').toLowerCase()
+    if (id.includes('gemini-3') || id.includes('gemini-3.5') || id.includes('gemini-3.6') || name.includes('gemini 3')) {
+      return false
+    }
     return id.includes('free') || name.includes('free') || id.includes('flash') || id.includes('mimo') || id.includes('hy3') || id.includes('nemotron') || id.includes('north')
   }
 

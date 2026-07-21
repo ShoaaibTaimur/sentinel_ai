@@ -9,26 +9,26 @@ export async function applyAutostartSetting(enabled: boolean): Promise<void> {
     const desktopFilePath = path.join(autostartDir, 'sentinel-ai.desktop')
 
     if (enabled) {
-      const execPath = app.getPath('exe')
+      // Use process.env.APPIMAGE if running as AppImage package to avoid temporary /tmp/.mount path
+      const realExecPath = process.env.APPIMAGE || app.getPath('exe')
       const appPath = app.getAppPath()
       const isPackaged = app.isPackaged
-      
-      const execLine = isPackaged
-        ? `Exec="${execPath}"`
-        : `Exec="${execPath}" "${appPath}" --no-sandbox`
-      
-      const iconPath = path.join(appPath, 'resources', 'icon.svg')
+
+      // Standard freedesktop Exec line format
+      const execCommand = isPackaged
+        ? realExecPath
+        : `${realExecPath} ${appPath} --no-sandbox`
 
       const desktopContent = `[Desktop Entry]
 Type=Application
 Version=1.0
 Name=Sentinel AI
-Comment=Sentinel AI Assistant
-${execLine}
-Icon=${iconPath}
-StartupNotify=false
+Comment=Keyboard-first desktop AI assistant
+Exec=${execCommand}
+Icon=sentinel-ai
+StartupNotify=true
 Terminal=false
-Categories=Utility;
+Categories=Utility;Development;
 X-GNOME-Autostart-enabled=true
 `
       try {
@@ -46,10 +46,11 @@ X-GNOME-Autostart-enabled=true
     }
   } else {
     try {
+      const realExecPath = process.env.APPIMAGE || app.getPath('exe')
       app.setLoginItemSettings({
         openAtLogin: enabled,
         openAsHidden: false,
-        path: app.getPath('exe')
+        path: realExecPath
       })
     } catch (err) {
       console.error('Failed to set login item settings:', err)

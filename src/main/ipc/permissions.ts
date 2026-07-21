@@ -41,8 +41,29 @@ export async function requestPermission(
   // Auto-approve low risk actions (read file, list dir, search, web fetch, focus window)
   if (req.risk === 'low') return true
 
-  // Auto-approve non-destructive launcher actions (open project in IDE, launch app/URL)
-  if (req.action === 'apps:open_project' || req.action === 'apps:launch' || req.action === 'fs:read') return true
+  // Auto-approve non-destructive launcher and GUI automation actions
+  if (
+    req.action === 'apps:open_project' ||
+    req.action === 'apps:launch' ||
+    req.action === 'fs:read' ||
+    req.action === 'gui:input' ||
+    req.action === 'apps:focus' ||
+    req.action === 'fs:read_active'
+  ) return true
+
+  // macOS: Check if system accessibility permission is granted without triggering prompt loops
+  if (process.platform === 'darwin') {
+    try {
+      const { systemPreferences } = require('electron')
+      if (systemPreferences?.isTrustedAccessibilityClient && systemPreferences.isTrustedAccessibilityClient(false)) {
+        if (req.action === 'gui:input' || req.action === 'apps:focus') {
+          return true
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }
 
   return new Promise((resolve) => {
     pending.set(req.id, (result) => {
