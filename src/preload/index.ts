@@ -42,6 +42,7 @@ const api = {
   hideWindow: () => ipcRenderer.invoke('window:hide'),
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   closeWindow: () => ipcRenderer.invoke('window:close'),
+  quitApp: () => ipcRenderer.invoke('app:quit'),
   toggleFullscreen: () => ipcRenderer.invoke('window:toggleFullscreen'),
   isFullscreen: () => ipcRenderer.invoke('window:isFullscreen'),
   platform: process.platform,

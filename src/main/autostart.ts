@@ -48,6 +48,7 @@ X-GNOME-Autostart-enabled=true
     try {
       app.setLoginItemSettings({
         openAtLogin: enabled,
+        openAsHidden: false,
         path: app.getPath('exe')
       })
     } catch (err) {

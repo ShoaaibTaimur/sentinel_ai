@@ -12,10 +12,14 @@ export function setupIPC(win: BrowserWindow): void {
   setupCommandHandlers(win)
   setupStoreHandlers()
 
-  // Window controls
+  // Window & App controls
   ipcMain.handle('window:hide', () => win.hide())
   ipcMain.handle('window:minimize', () => win.minimize())
   ipcMain.handle('window:close', () => win.close())
+  ipcMain.handle('app:quit', () => {
+    const { app } = require('electron')
+    app.quit()
+  })
   ipcMain.handle('window:toggleFullscreen', () => {
     const next = !win.isFullScreen()
     win.setFullScreen(next)
