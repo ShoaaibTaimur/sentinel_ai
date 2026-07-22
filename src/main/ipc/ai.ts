@@ -9,8 +9,10 @@ import activeWin from 'active-win'
 
 export function setupAIHandlers(win: BrowserWindow): void {
   let activeAbortController: AbortController | null = null
+  let activeRequestId: string | null = null
 
   ipcMain.handle('ai:cancel', () => {
+    activeRequestId = null
     if (activeAbortController) {
       activeAbortController.abort()
       activeAbortController = null
@@ -27,11 +29,32 @@ export function setupAIHandlers(win: BrowserWindow): void {
       _event,
       messages: Array<any>
     ) => {
+      const currentRequestId = crypto.randomUUID()
+      activeRequestId = currentRequestId
+
       if (activeAbortController) {
         activeAbortController.abort()
       }
       activeAbortController = new AbortController()
       const signal = activeAbortController.signal
+
+      const isCurrent = () => activeRequestId === currentRequestId && !signal.aborted
+
+      const sendToken = (tok: string) => {
+        if (isCurrent()) win.webContents.send('ai:token', tok)
+      }
+      const sendStatus = (st: string | null) => {
+        if (isCurrent()) win.webContents.send('ai:status', st)
+      }
+      const sendUsage = (u: any) => {
+        if (isCurrent()) win.webContents.send('ai:usage', u)
+      }
+      const sendDone = (content: string) => {
+        if (isCurrent()) win.webContents.send('ai:done', content)
+      }
+      const sendError = (errMsg: string) => {
+        if (isCurrent()) win.webContents.send('ai:error', errMsg)
+      }
 
       try {
         const active = await activeWin().catch(() => null)
@@ -110,7 +133,7 @@ ${activeContextStr}
 
         while (loop && loopCount < MAX_LOOPS) {
           loopCount++
-          if (signal.aborted) {
+          if (!isCurrent()) {
             throw new Error('Cancelled by user')
           }
           let hasToolCalls = false
@@ -118,12 +141,12 @@ ${activeContextStr}
           let content = ''
 
           for await (const chunk of streamChatWithUsage(currentMessages, TOOLS, { signal })) {
-            if (signal.aborted) {
+            if (!isCurrent()) {
               throw new Error('Cancelled by user')
             }
             if (chunk.token) {
               content += chunk.token
-              win.webContents.send('ai:token', chunk.token)
+              sendToken(chunk.token)
             }
             if (chunk.toolCalls) {
               hasToolCalls = true
@@ -132,7 +155,7 @@ ${activeContextStr}
             if (chunk.usage) {
               const model = getModel()
               const contextLimit = MODEL_CONTEXT_LIMITS[model] ?? DEFAULT_CONTEXT_LIMIT
-              win.webContents.send('ai:usage', {
+              sendUsage({
                 promptTokens: chunk.usage.prompt_tokens,
                 completionTokens: chunk.usage.completion_tokens,
                 totalTokens: chunk.usage.total_tokens,
@@ -145,7 +168,7 @@ ${activeContextStr}
             accumulatedContent += (accumulatedContent && !accumulatedContent.endsWith('\n') ? '\n\n' : '') + content
           }
 
-          if (signal.aborted) {
+          if (!isCurrent()) {
             throw new Error('Cancelled by user')
           }
 
@@ -159,11 +182,11 @@ ${activeContextStr}
             currentMessages.push(assistantMsg)
 
             // Let user know tool action is running via status event
-            win.webContents.send('ai:status', 'Executing action...')
+            sendStatus('Executing action...')
 
             // Execute all tool calls
             for (const tc of toolCalls) {
-              if (signal.aborted) {
+              if (!isCurrent()) {
                 throw new Error('Cancelled by user')
               }
               const name = tc.function.name
@@ -176,12 +199,12 @@ ${activeContextStr}
 
               const handler = HANDLERS[name]
               const toolReason = handler ? handler.reason(args) : `Executing ${name}...`
-              win.webContents.send('ai:status', toolReason)
+              sendStatus(toolReason)
 
               // Run the tool with permission gate
               const result = await executeTool(win, name, args)
 
-              if (signal.aborted || (result && result.error === 'Permission denied by user')) {
+              if (!isCurrent() || (result && result.error === 'Permission denied by user')) {
                 throw new Error('Cancelled by user')
               }
 
@@ -194,7 +217,7 @@ ${activeContextStr}
             }
 
             // Status update: tool execution finished, processing output
-            win.webContents.send('ai:status', 'Processing response...')
+            sendStatus('Processing response...')
             // Continue loop with updated messages history containing tool outputs
           } else {
             // No tool calls, we are done
@@ -207,13 +230,33 @@ ${activeContextStr}
           finalContent = accumulatedContent.trim() || 'Task completed successfully.'
         }
 
-        win.webContents.send('ai:status', null)
-        win.webContents.send('ai:done', finalContent)
+        if (isCurrent()) {
+          sendStatus(null)
+          sendDone(finalContent)
+        }
         return { ok: true, content: finalContent }
       } catch (err: unknown) {
-        win.webContents.send('ai:status', null)
-        const msg = err instanceof Error ? err.message : String(err)
-        win.webContents.send('ai:error', msg)
+        if (!isCurrent()) {
+          return { ok: false, error: 'Cancelled by user' }
+        }
+
+        sendStatus(null)
+        let msg = err instanceof Error ? err.message : String(err)
+
+        if (msg === 'Cancelled by user' || signal.aborted) {
+          return { ok: false, error: 'Cancelled by user' }
+        }
+
+        // Format user-friendly error messages for 500 / network / authorization errors
+        if (msg.includes('500') || msg.includes('Internal Server Error')) {
+          msg = 'OpenCode Zen API server error (500). Please try again in a moment or select a different AI model in Settings.'
+        } else if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('invalid api key')) {
+          msg = 'Invalid API key. Please check your OpenCode Zen API key in Settings.'
+        } else if (msg.includes('429') || msg.includes('Rate limit')) {
+          msg = 'Rate limit exceeded. Please wait a few seconds before trying again.'
+        }
+
+        sendError(msg)
         return { ok: false, error: msg }
       }
     }

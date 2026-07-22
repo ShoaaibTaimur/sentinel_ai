@@ -72,21 +72,46 @@ export async function* streamChatWithUsage(
   options?: { signal?: AbortSignal }
 ): AsyncGenerator<{ token?: string; usage?: StreamResult['usage']; toolCalls?: any[] }> {
   const client = getClient()
-  const stream = await client.chat.completions.create({
-    model: getModel(),
-    messages,
-    stream: true,
-    tools: tools && tools.length > 0 ? tools : undefined,
-    // Request usage in the final chunk
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    stream_options: { include_usage: true } as any
-  }, { signal: options?.signal })
+  let stream: any = null
+  let attempts = 0
+  const maxAttempts = 3
+
+  while (attempts < maxAttempts) {
+    attempts++
+    try {
+      stream = await client.chat.completions.create({
+        model: getModel(),
+        messages,
+        stream: true,
+        tools: tools && tools.length > 0 ? tools : undefined,
+        // Request usage in the final chunk
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        stream_options: { include_usage: true } as any
+      }, { signal: options?.signal })
+      break
+    } catch (err: any) {
+      if (options?.signal?.aborted) throw err
+      const status = err?.status || err?.statusCode
+      const is5xx = typeof status === 'number' && status >= 500 && status < 600
+      const isNetwork = err?.code === 'ECONNRESET' || err?.message?.includes('fetch failed') || err?.message?.includes('network')
+      
+      if ((is5xx || isNetwork) && attempts < maxAttempts) {
+        await new Promise(r => setTimeout(r, attempts * 1000))
+        continue
+      }
+      throw err
+    }
+  }
+
+  if (!stream) return
 
   // Keep track of tool calls that are streamed
   const toolCallsAcc: any[] = []
 
   for await (const chunk of stream) {
-    const delta = chunk.choices[0]?.delta
+    if (options?.signal?.aborted) break
+
+    const delta = chunk.choices?.[0]?.delta
     const content = delta?.content
     if (content) yield { token: content }
 
