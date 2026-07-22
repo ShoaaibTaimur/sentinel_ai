@@ -277,6 +277,7 @@ export default function MainArea({
     const text = input.trim()
     if (!text || loading) return
     setInput('')
+    if (inputRef.current) inputRef.current.style.height = 'auto'
     setStatusText(null)
     setStreamingContent('')
     streamingRef.current = false
@@ -662,20 +663,31 @@ export default function MainArea({
       </div>
 
       <div className="prompt-area">
-        <div className="prompt-wrap">
+        <div className="prompt-wrap" onClick={() => inputRef.current?.focus()}>
           <textarea
             ref={inputRef}
             className="prompt-input"
             placeholder="Ask anything — open files, launch IDEs, search, edit code…"
             value={input}
-            onChange={e => setInput(e.target.value)}
+            onChange={e => {
+              setInput(e.target.value)
+              e.target.style.height = 'auto'
+              e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`
+            }}
             onKeyDown={onKey}
             rows={1}
             disabled={loading}
           />
           <button 
             className={`prompt-send ${loading ? 'loading' : ''}`} 
-            onClick={loading ? handleCancel : send}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (loading) {
+                handleCancel()
+              } else {
+                send()
+              }
+            }}
             title={loading ? "Cancel Execution (Esc)" : "Send Message"}
           >
             {loading ? '■' : '↑'}
