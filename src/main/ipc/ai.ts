@@ -96,7 +96,9 @@ ${activeContextStr}
 
 11. **File Opening vs Creation**: If a requested file, folder, or application is not found when the user asks to open, read, or view it, report that it was not found. Do NOT call \`fs_create_file\` or \`fs_write_file\` to create a new file unless the user explicitly requested creating a file.
 
-12. **System-Wide Deep File Search**: You have full system access to find files anywhere on the OS, including deeply nested directories. Search from home (\`~\`) or root (\`/\`) using \`fs_search\`. If no matches are found, report explicitly to the user that the file was not found on the system after a deep search.`
+12. **System-Wide Deep File Search**: You have full system access to find files anywhere on the OS, including deeply nested directories. Search from home (\`~\`) or root (\`/\`) using \`fs_search\`. If no matches are found, report explicitly to the user that the file was not found on the system after a deep search.
+
+13. **Official Dedicated Website**: When asked for your dedicated website, official web page, or download link, specify your official dedicated website: https://sentinel.taimur.dev alongside the creator's portfolio: https://taimur.dev.`
         }
 
         const currentMessages = [systemPrompt, ...messages]
