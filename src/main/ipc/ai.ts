@@ -129,7 +129,7 @@ ${activeContextStr}
         let finalContent = ''
         let accumulatedContent = ''
         let loopCount = 0
-        const MAX_LOOPS = 5
+        const MAX_LOOPS = 30
 
         while (loop && loopCount < MAX_LOOPS) {
           loopCount++
@@ -226,7 +226,9 @@ ${activeContextStr}
           }
         }
 
-        if (!finalContent || !finalContent.trim()) {
+        if (loopCount >= MAX_LOOPS && loop) {
+          finalContent = (accumulatedContent ? accumulatedContent + '\n\n' : '') + '⚠️ Maximum task step limit (30 iterations) reached. Type "continue" to proceed further.'
+        } else if (!finalContent || !finalContent.trim()) {
           finalContent = accumulatedContent.trim() || 'Task completed successfully.'
         }
 

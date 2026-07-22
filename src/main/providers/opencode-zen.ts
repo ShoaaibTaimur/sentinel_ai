@@ -34,7 +34,7 @@ export const ZEN_MODELS = [
 ]
 
 function getClient(): OpenAI {
-  return new OpenAI({ apiKey: getApiKey(), baseURL: BASE_URL })
+  return new OpenAI({ apiKey: getApiKey(), baseURL: BASE_URL, timeout: 10 * 60 * 1000 })
 }
 
 export async function validateApiKey(key: string): Promise<boolean> {
