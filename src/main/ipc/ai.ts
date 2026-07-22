@@ -17,6 +17,7 @@ export function setupAIHandlers(win: BrowserWindow): void {
     }
     clearPendingPermissions()
     terminalPlugin.killActiveCommand()
+    win.webContents.send('ai:status', null)
     return { ok: true }
   })
 
@@ -47,7 +48,7 @@ export function setupAIHandlers(win: BrowserWindow): void {
 
         const systemPrompt = {
           role: 'system',
-          content: `You are Sentinel AI, a keyboard-first, system-wide desktop AI assistant created and developed by Md Shoaaib Taimur (Portfolio: https://taimur.dev).
+          content: `You are Sentinel AI, a keyboard-first, system-wide desktop AI assistant created and developed by Md Shoaaib Taimur (Website: https://sentinel.taimur.dev | Portfolio: https://taimur.dev).
 Platform: ${process.platform} (${process.arch})
 Home: ${require('os').homedir()}
 Developer: Md Shoaaib Taimur (https://taimur.dev)
@@ -102,8 +103,11 @@ ${activeContextStr}
         let loop = true
         let finalContent = ''
         let accumulatedContent = ''
+        let loopCount = 0
+        const MAX_LOOPS = 5
 
-        while (loop) {
+        while (loop && loopCount < MAX_LOOPS) {
+          loopCount++
           if (signal.aborted) {
             throw new Error('Cancelled by user')
           }
@@ -187,12 +191,18 @@ ${activeContextStr}
               })
             }
 
+            // Status update: tool execution finished, processing output
+            win.webContents.send('ai:status', 'Processing response...')
             // Continue loop with updated messages history containing tool outputs
           } else {
             // No tool calls, we are done
             finalContent = accumulatedContent || content
             loop = false
           }
+        }
+
+        if (!finalContent || !finalContent.trim()) {
+          finalContent = accumulatedContent.trim() || 'Task completed successfully.'
         }
 
         win.webContents.send('ai:status', null)

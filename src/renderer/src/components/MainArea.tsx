@@ -130,10 +130,17 @@ export default function MainArea({
   }, [currentConvId, convTitle, createdAt])
 
   const onError = useCallback((err: string) => {
+    setStatusText(null)
+    setStreamingContent('')
+    streamingRef.current = false
+    setLoading(false)
     if (err === 'Cancelled by user') {
       setMessages(prev => {
         const copy = [...prev]
-        if (copy.length > 0 && copy[copy.length - 1].role === 'assistant') {
+        if (copy.length > 0 && copy[copy.length - 1].role === 'system' && copy[copy.length - 1].content === 'Cancelled') {
+          return copy
+        }
+        if (copy.length > 0 && copy[copy.length - 1].role === 'assistant' && !copy[copy.length - 1].content) {
           copy.pop()
         }
         copy.push({ id: crypto.randomUUID(), role: 'system', content: 'Cancelled', ts: Date.now() })
@@ -152,9 +159,6 @@ export default function MainArea({
     } else {
       setMessages(m => [...m, { id: crypto.randomUUID(), role: 'system', content: `Error: ${err as string}`, ts: Date.now() }])
     }
-    setStreamingContent('')
-    streamingRef.current = false
-    setLoading(false)
   }, [currentConvId, convTitle, createdAt])
 
   const onUsage = useCallback((usage: TokenUsage) => {
@@ -229,10 +233,16 @@ export default function MainArea({
 
   const handleCancel = useCallback(async () => {
     setLoading(false)
+    setStatusText(null)
+    setStreamingContent('')
+    streamingRef.current = false
     await window.sentinel.cancel()
     setMessages(prev => {
       const copy = [...prev]
-      if (copy.length > 0 && copy[copy.length - 1].role === 'assistant') {
+      if (copy.length > 0 && copy[copy.length - 1].role === 'system' && copy[copy.length - 1].content === 'Cancelled') {
+        return copy
+      }
+      if (copy.length > 0 && copy[copy.length - 1].role === 'assistant' && !copy[copy.length - 1].content) {
         copy.pop()
       }
       copy.push({ id: crypto.randomUUID(), role: 'system', content: 'Cancelled', ts: Date.now() })
@@ -267,6 +277,9 @@ export default function MainArea({
     const text = input.trim()
     if (!text || loading) return
     setInput('')
+    setStatusText(null)
+    setStreamingContent('')
+    streamingRef.current = false
 
     const newUserMsg: Message = { id: crypto.randomUUID(), role: 'user', content: text, ts: Date.now() }
     const updated = [...messages, newUserMsg]
@@ -530,6 +543,10 @@ export default function MainArea({
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>Official Website:</strong>
+                  <a href="https://sentinel.taimur.dev" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>sentinel.taimur.dev</a>
+                </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <strong style={{ color: 'var(--text-primary)' }}>Developer:</strong>
                   <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Md Shoaaib Taimur</span>
