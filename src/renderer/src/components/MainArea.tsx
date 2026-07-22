@@ -539,7 +539,7 @@ export default function MainArea({
               <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
                 <img src={logoUrl} alt="Sentinel AI" style={{ width: '42px', height: '42px' }} />
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>Sentinel AI v1.0.2</h3>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>Sentinel AI v1.0.3</h3>
                   <span style={{ fontSize: '12.5px', color: 'var(--text-dim)' }}>Keyboard-first, system-wide desktop AI assistant</span>
                 </div>
               </div>
