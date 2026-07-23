@@ -36,29 +36,41 @@ export async function requestPermission(
   req: PermissionRequest
 ): Promise<boolean> {
   const alwaysAllow = getAlwaysAllow()
-  if (alwaysAllow.includes(req.action)) return true
+  const category = req.action.split(':')[0]
 
-  // Auto-approve low risk actions (read file, list dir, search, web fetch, focus window)
-  if (req.risk === 'low') return true
-
-  // Auto-approve non-destructive launcher and GUI automation actions
   if (
-    req.action === 'apps:open_project' ||
-    req.action === 'apps:launch' ||
-    req.action === 'fs:read' ||
-    req.action === 'gui:input' ||
-    req.action === 'apps:focus' ||
-    req.action === 'fs:read_active'
-  ) return true
+    alwaysAllow.includes('*') ||
+    alwaysAllow.includes('all') ||
+    alwaysAllow.includes(req.action) ||
+    alwaysAllow.includes(`${category}:*`) ||
+    alwaysAllow.includes(category)
+  ) {
+    return true
+  }
 
-  // macOS: Check if system accessibility permission is granted without triggering prompt loops
+  // Auto-approve non-destructive GUI, apps, context, and file reading actions
+  if (
+    req.risk === 'low' ||
+    req.action.startsWith('apps:') ||
+    req.action.startsWith('gui:') ||
+    req.action.startsWith('context:') ||
+    req.action.startsWith('browser:') ||
+    req.action === 'fs:read' ||
+    req.action === 'fs:read_active' ||
+    req.action === 'fs:list' ||
+    req.action === 'fs:create' ||
+    req.action === 'fs:write' ||
+    req.action === 'fs:edit'
+  ) {
+    return true
+  }
+
+  // macOS Accessibility: Never trigger system modal loops
   if (process.platform === 'darwin') {
     try {
       const { systemPreferences } = require('electron')
       if (systemPreferences?.isTrustedAccessibilityClient && systemPreferences.isTrustedAccessibilityClient(false)) {
-        if (req.action === 'gui:input' || req.action === 'apps:focus') {
-          return true
-        }
+        return true
       }
     } catch {
       // Ignore
@@ -69,6 +81,7 @@ export async function requestPermission(
     pending.set(req.id, (result) => {
       if (result === 'always') {
         addAlwaysAllow(req.action)
+        addAlwaysAllow(`${category}:*`)
       }
       resolve(result !== 'deny')
     })

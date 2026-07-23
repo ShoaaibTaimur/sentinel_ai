@@ -18,6 +18,13 @@ case "${OS}" in
       curl -fsSL -O "${URL}"
       sudo dpkg -i "${FILE}"
       rm "${FILE}"
+
+      # Install Desktop Icon
+      ICON_URL="https://raw.githubusercontent.com/${REPO}/main/resources/icon.png"
+      sudo curl -fsSL "${ICON_URL}" -o /usr/share/pixmaps/sentinel-ai.png 2>/dev/null || true
+      mkdir -p ~/.local/share/icons/hicolor/512x512/apps ~/.local/share/pixmaps
+      curl -fsSL "${ICON_URL}" -o ~/.local/share/icons/hicolor/512x512/apps/sentinel-ai.png 2>/dev/null || true
+      curl -fsSL "${ICON_URL}" -o ~/.local/share/pixmaps/sentinel-ai.png 2>/dev/null || true
     else
       FILE="sentinel-ai-${VERSION}.AppImage"
       URL="https://github.com/${REPO}/releases/download/v${VERSION}/${FILE}"
