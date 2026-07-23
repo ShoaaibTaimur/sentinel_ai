@@ -40,11 +40,19 @@ case "${OS}" in
     FILE="Sentinel-AI-${VERSION}.dmg"
     URL="https://github.com/${REPO}/releases/download/v${VERSION}/${FILE}"
     echo "Downloading ${FILE}..."
-    curl -fsSL -O "${URL}"
-    hdiutil attach "${FILE}"
-    cp -R "/Volumes/Sentinel AI/Sentinel AI.app" /Applications/
-    hdiutil detach "/Volumes/Sentinel AI"
-    rm "${FILE}"
+    if curl -fsSL -O "${URL}"; then
+      hdiutil attach "${FILE}"
+      cp -R "/Volumes/Sentinel AI/Sentinel AI.app" /Applications/ 2>/dev/null || cp -R "/Volumes/Sentinel-AI/Sentinel-AI.app" /Applications/ 2>/dev/null || cp -R /Volumes/Sentinel*/Sentinel*.app /Applications/
+      hdiutil detach "/Volumes/Sentinel AI" 2>/dev/null || hdiutil detach "/Volumes/Sentinel-AI" 2>/dev/null || hdiutil detach /Volumes/Sentinel* 2>/dev/null || true
+      rm -f "${FILE}"
+    else
+      FILE="Sentinel-AI-${VERSION}.zip"
+      URL="https://github.com/${REPO}/releases/download/v${VERSION}/${FILE}"
+      echo "Downloading ${FILE} fallback..."
+      curl -fsSL -O "${URL}"
+      unzip -o "${FILE}" -d /Applications/
+      rm -f "${FILE}"
+    fi
     ;;
   *)
     echo "Unsupported OS: ${OS}"
