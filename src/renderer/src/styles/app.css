@@ -281,6 +281,93 @@
 }
 .prompt-context-pill .ctx-dismiss:hover { color: var(--text-primary); }
 
+.pinned-context-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.pinned-context-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-bright);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--fast);
+  max-width: 240px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.pinned-context-badge:hover {
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.pinned-badge-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.pinned-badge-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.pinned-badge-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1;
+  transition: all var(--fast);
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+
+.pinned-badge-remove:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--danger, #ff4d4f);
+}
+
+.btn-attach-context {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-bright);
+  color: var(--text-secondary);
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--fast);
+  flex-shrink: 0;
+}
+
+.btn-attach-context:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-elevated);
+  transform: scale(1.05);
+}
+
 .prompt-wrap {
   display: flex; align-items: center; gap: 10px;
   background: var(--bg-elevated);

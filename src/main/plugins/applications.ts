@@ -17,7 +17,11 @@ export const applicationsPlugin = {
     const ideMap: Record<string, string> = {
       'cursor': 'cursor',
       'trae': 'trae',
+      'antigravity-ide': 'antigravity',
+      'antigravity ide': 'antigravity',
+      'gemini-antigravity': 'antigravity',
       'antigravity': 'antigravity',
+      'gemini': 'antigravity',
       'windsurf': 'windsurf',
       'vscode': 'code',
       'vs code': 'code',
@@ -231,6 +235,10 @@ export const applicationsPlugin = {
       'cursor': 'cursor',
       'trae': 'trae',
       'antigravity': 'antigravity',
+      'antigravity-ide': 'antigravity',
+      'antigravity ide': 'antigravity',
+      'gemini-antigravity': 'antigravity',
+      'gemini': 'antigravity',
       'windsurf': 'windsurf',
       'sublime': 'subl',
       'subl': 'subl',
@@ -261,6 +269,21 @@ export const applicationsPlugin = {
       path.join(homedir, '.local/bin', execBin),
       `/snap/bin/${execBin}`
     ]
+
+    if (execBin === 'antigravity') {
+      candidates.push(
+        'antigravity-ide',
+        'antigravity_ide',
+        `/usr/bin/antigravity-ide`,
+        `/usr/local/bin/antigravity-ide`,
+        path.join(homedir, '.local/bin', 'antigravity-ide'),
+        path.join(homedir, '.gemini/antigravity-ide/antigravity'),
+        path.join(homedir, '.gemini/antigravity-ide/antigravity-ide'),
+        path.join(homedir, '.antigravity/bin/antigravity'),
+        '/opt/antigravity/antigravity',
+        '/opt/Antigravity/antigravity'
+      )
+    }
 
     for (const binPath of candidates) {
       try {

@@ -97,18 +97,22 @@ ${activeContextStr}
    - For multiple pages, call \`apps_launch\` once per URL.
 
 5. **Opening Projects in IDEs**:
-   - When user says "open [project/folder] in VS Code / Cursor / Trae / Windsurf": call \`apps_open_project\` with the folder path and IDE name.
-   - Supported IDE values: \`code\` (VS Code), \`cursor\`, \`trae\`, \`windsurf\`.
+   - When user says "open [project/folder] in VS Code / Cursor / Trae / Antigravity / Antigravity IDE / Windsurf": call \`apps_open_project\` with the folder path and IDE name.
+   - Supported IDE values: \`code\` (VS Code), \`cursor\`, \`trae\`, \`antigravity\` (Antigravity / Antigravity IDE), \`windsurf\`.
    - The tool will search for the folder by name if an absolute path isn't given.
 
 6. **Opening Files**:
    - When user asks to open a specific file (not an IDE project): call \`apps_launch\` with the filename or path. It opens with the system default application.
 
-7. **System-Wide File & Folder Search**:
+7. **Attaching / Pinning Workspace Context Badges**:
+   - When the user asks to "open [file/folder] in your workspace", "pin [file/folder] to workspace", "attach [file/folder] badge", or similar: call \`context_pin_badge\` with the target path.
+   - You DO HAVE a dedicated tool for this (\`context_pin_badge\`). Always call \`context_pin_badge\` to pin it to the Sentinel AI chat UI.
+
+8. **System-Wide File & Folder Search**:
    - Use \`fs_search\` with a pattern for file content searching.
    - For opening files/folders by partial name: \`apps_launch\` and \`apps_open_project\` both accept partial names and resolve them via fast native \`find\` / \`mdfind\` / PowerShell search.
 
-8. **Platform Notes**:
+9. **Platform Notes**:
    - Linux Wayland: keyboard simulation blocked. Use clipboard fallback or MCP browser.
    - macOS: uses AppleScript for input simulation and \`mdfind\` for fast file indexing.
    - Windows: uses PowerShell \`Get-ChildItem\` for file search.

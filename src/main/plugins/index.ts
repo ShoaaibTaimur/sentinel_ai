@@ -1,4 +1,6 @@
 import { BrowserWindow } from 'electron'
+import fs from 'fs'
+import path from 'path'
 import { requestPermission } from '../ipc/permissions'
 import { filesystemPlugin } from './filesystem'
 import { terminalPlugin } from './terminal'
@@ -26,7 +28,7 @@ export interface ToolHandler {
   risk: 'low' | 'medium' | 'high'
   action: string // Permission key (e.g. fs:delete)
   reason: (args: any) => string // Reason shown in permission dialog
-  execute: (args: any) => Promise<any>
+  execute: (args: any, win?: BrowserWindow) => Promise<any>
 }
 
 export const TOOLS: ToolDefinition[] = [
@@ -520,6 +522,20 @@ export const TOOLS: ToolDefinition[] = [
         properties: {}
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'context_pin_badge',
+      description: 'Pin a file or folder as an active context badge in the Sentinel AI UI. Use this tool when the user asks to "open [file/folder] in your workspace", "pin [file/folder] to workspace/context", "attach [file/folder]", or similar.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Absolute file or directory path to pin as a context badge' }
+        },
+        required: ['path']
+      }
+    }
   }
 ]
 
@@ -734,6 +750,30 @@ export const HANDLERS: Record<string, ToolHandler> = {
     action: 'browser:get_content',
     reason: () => `Read content and DOM structure of active browser tab`,
     execute: () => mcpBrowserPlugin.getContent()
+  },
+  context_pin_badge: {
+    risk: 'low',
+    action: 'context:pin',
+    reason: (args) => `Pin target path as context badge: ${args.path}`,
+    execute: async (args, win) => {
+      const absPath = path.resolve(args.path)
+      if (!fs.existsSync(absPath)) {
+        return { error: `Path does not exist: ${absPath}` }
+      }
+      const stat = fs.statSync(absPath)
+      const isDir = stat.isDirectory()
+      const name = path.basename(absPath) || absPath
+
+      if (win) {
+        win.webContents.send('context:pathPinned', {
+          path: absPath,
+          name,
+          isDir
+        })
+      }
+
+      return { success: true, message: `Successfully pinned ${name} (${isDir ? 'directory' : 'file'}) to Sentinel AI workspace context badges.` }
+    }
   }
 }
 
@@ -764,7 +804,7 @@ export async function executeTool(
 
   // Execute
   try {
-    return await handler.execute(args)
+    return await handler.execute(args, win)
   } catch (err: any) {
     return { error: err.message || String(err) }
   }

@@ -1,99 +1,63 @@
 #!/usr/bin/env bash
 set -e
 
-# Design colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-NC='\033[0;0m' # No Color
+REPO="ShoaaibTaimur/sentinel_ai"
+VERSION="1.0.4"
 
-echo -e "${BLUE}🛡️ Installing Sentinel AI...${NC}"
+echo "🛡️ Installing Sentinel AI v${VERSION}..."
 
 OS="$(uname -s)"
 ARCH="$(uname -m)"
 
-REPO="ShoaaibTaimur/sentinel_ai"
-LATEST_RELEASE_URL="https://api.github.com/repos/${REPO}/releases/latest"
-
-# Get latest tag name
-TAG=$(curl -s "$LATEST_RELEASE_URL" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-
-if [ -z "$TAG" ]; then
-    echo -e "${RED}Error: Could not retrieve latest release info from GitHub.${NC}"
-    exit 1
-fi
-
-echo -e "${GREEN}Found release: ${TAG}${NC}"
-VERSION="${TAG#v}"
-
-if [ "$OS" = "Darwin" ]; then
-    echo -e "${BLUE}OS: macOS (${ARCH})${NC}"
-    INSTALL_DIR="/Applications"
-    
-    if [ "$ARCH" = "x86_64" ]; then
-        ARCH_NAME="x64"
+case "${OS}" in
+  Linux*)
+    if command -v dpkg >/dev/null 2>&1; then
+      FILE="sentinel-ai_${VERSION}_amd64.deb"
+      URL="https://github.com/${REPO}/releases/download/v${VERSION}/${FILE}"
+      echo "Downloading ${FILE}..."
+      curl -fsSL -O "${URL}"
+      sudo dpkg -i "${FILE}"
+      rm "${FILE}"
     else
-        ARCH_NAME="arm64"
+      FILE="sentinel-ai-${VERSION}.AppImage"
+      URL="https://github.com/${REPO}/releases/download/v${VERSION}/${FILE}"
+      echo "Downloading ${FILE}..."
+      curl -fsSL -o sentinel-ai.AppImage "${URL}"
+      chmod +x sentinel-ai.AppImage
+      mkdir -p ~/.local/bin
+      mv sentinel-ai.AppImage ~/.local/bin/sentinel-ai
+      echo "Installed app to ~/.local/bin/sentinel-ai"
     fi
-    DOWNLOAD_URL="https://github.com/ShoaaibTaimur/sentinel_ai/releases/download/${TAG}/Sentinel-AI-${VERSION}-${ARCH_NAME}-mac.zip"
-    
-    if pgrep -x "Sentinel AI" > /dev/null; then
-        echo -e "${RED}Error: Sentinel AI is currently running. Please close the app and try again.${NC}"
-        exit 1
-    fi
-    
-    echo -e "Downloading: ${DOWNLOAD_URL}"
-    curl -L "$DOWNLOAD_URL" -o /tmp/sentinel-ai-mac.zip
-    
-    echo -e "Extracting to ${INSTALL_DIR}..."
-    unzip -q -o /tmp/sentinel-ai-mac.zip -d "$INSTALL_DIR"
-    rm /tmp/sentinel-ai-mac.zip
-    
-    echo -e "${GREEN}✓ Sentinel AI installed in /Applications successfully!${NC}"
-    echo -e "You can now search and launch 'Sentinel AI' from Spotlight or Launchpad."
-
-elif [ "$OS" = "Linux" ]; then
-    echo -e "${BLUE}OS: Linux (${ARCH})${NC}"
-    INSTALL_DIR="${HOME}/.local/share/sentinel-ai"
-    mkdir -p "$INSTALL_DIR"
-    
-    DOWNLOAD_URL="https://github.com/ShoaaibTaimur/sentinel_ai/releases/download/${TAG}/Sentinel-AI-${VERSION}.AppImage"
-    ICON_URL="https://raw.githubusercontent.com/ShoaaibTaimur/sentinel_ai/main/resources/icon.png"
-    
-    if pgrep -f "sentinel-ai.AppImage" > /dev/null; then
-        echo -e "${RED}Error: Sentinel AI is currently running. Please close the app and try again.${NC}"
-        exit 1
-    fi
-    
-    echo -e "Downloading AppImage: ${DOWNLOAD_URL}"
-    curl -L "$DOWNLOAD_URL" -o "$INSTALL_DIR/sentinel-ai.AppImage"
-    chmod +x "$INSTALL_DIR/sentinel-ai.AppImage"
-    
-    echo -e "Downloading Icon: ${ICON_URL}"
-    curl -L "$ICON_URL" -o "$INSTALL_DIR/icon.png"
-    
-    # Create desktop entry
-    DESKTOP_DIR="${HOME}/.local/share/applications"
-    mkdir -p "$DESKTOP_DIR"
-    
-    cat <<EOF > "$DESKTOP_DIR/sentinel-ai.desktop"
-[Desktop Entry]
-Type=Application
-Name=Sentinel AI
-Comment=System-wide AI assistant
-Exec=${INSTALL_DIR}/sentinel-ai.AppImage --no-sandbox
-Icon=${INSTALL_DIR}/icon.png
-Terminal=false
-Categories=Utility;
-X-GNOME-Autostart-enabled=true
-EOF
-    
-    chmod +x "$DESKTOP_DIR/sentinel-ai.desktop"
-    echo -e "${GREEN}✓ Sentinel AI installed in ${INSTALL_DIR} and desktop entry registered!${NC}"
-    echo -e "You can now search and launch 'Sentinel AI' from your desktop application launcher."
-
-else
-    echo -e "${RED}Unsupported OS: ${OS}${NC}"
+    ;;
+  Darwin*)
+    FILE="Sentinel-AI-${VERSION}.dmg"
+    URL="https://github.com/${REPO}/releases/download/v${VERSION}/${FILE}"
+    echo "Downloading ${FILE}..."
+    curl -fsSL -O "${URL}"
+    hdiutil attach "${FILE}"
+    cp -R "/Volumes/Sentinel AI/Sentinel AI.app" /Applications/
+    hdiutil detach "/Volumes/Sentinel AI"
+    rm "${FILE}"
+    ;;
+  *)
+    echo "Unsupported OS: ${OS}"
     exit 1
+    ;;
+esac
+
+echo "⚡ Installing 'sentinelai' CLI command..."
+CLI_URL="https://raw.githubusercontent.com/${REPO}/main/main/bin/sentinel.js"
+if [ -w "/usr/local/bin" ]; then
+  curl -fsSL "${CLI_URL}" -o /usr/local/bin/sentinelai
+  chmod +x /usr/local/bin/sentinelai
+elif command -v sudo >/dev/null 2>&1; then
+  sudo curl -fsSL "${CLI_URL}" -o /usr/local/bin/sentinelai
+  sudo chmod +x /usr/local/bin/sentinelai
+else
+  mkdir -p ~/.local/bin
+  curl -fsSL "${CLI_URL}" -o ~/.local/bin/sentinelai
+  chmod +x ~/.local/bin/sentinelai
 fi
+
+echo "✅ Sentinel AI v${VERSION} & 'sentinelai' CLI installed successfully!"
+echo "👉 Run 'sentinelai .' in any terminal tab while app is running."

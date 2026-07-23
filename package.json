@@ -1,10 +1,13 @@
 {
   "name": "sentinel-ai",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Keyboard-first, system-wide AI assistant for desktop OS",
   "author": "Shoaib Taimur <contact@taimur.dev>",
   "homepage": "https://sentinel.taimur.dev",
   "main": "out/main/index.js",
+  "bin": {
+    "sentinelai": "./bin/sentinel.js"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",

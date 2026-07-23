@@ -1,71 +1,43 @@
-# 🛡️ Sentinel AI
+# 🛡️ Sentinel AI (v1.0.4)
 
-**A keyboard-first, system-wide AI assistant for your desktop.**
+**A keyboard-first, system-wide AI desktop assistant.**
 
-Sentinel AI is not a browser extension or a chatbot widget — it's a true operating system assistant that integrates with your files, terminal, git, default browser, and running apps. Launch it with a hotkey, tell it what you want, and it plans, confirms, and executes.
+Sentinel AI is not a browser extension or a chatbot widget — it's a true operating system assistant that integrates directly with your local files, terminal, git, default browser, running apps, and IDEs. Launch it instantly with `Super+Space` (or `Alt+Space`), tell it what you want, and it plans, confirms, and executes.
 
-> 🌟 **Status:** Version 1.0 Major Release complete. Refined Tokyo Night / Cyberpunk design system, responsive landing page, cross-platform fast file indexing/spotlight searches, multi-IDE project launching, and permission-gated active code-editing are fully operational.
-
----
-
-## ✨ Features (v1.0 Release)
-
-- **⌨️ Keyboard-First** — Every action is accessible via keyboard. Mouse is never required.
-- **🧠 Active Window & Context Aware** — Detects your active window, app, URL, and project automatically. Senses active workspace file locations and paths in real-time.
-- **🔍 Fast System-Wide Search** — Cross-platform native indexing using Spotlight (`mdfind`) on macOS, PowerShell `Get-ChildItem` on Windows, and fast `find` exclusions on Linux.
-- **📁 Multi-IDE Project Launcher** — Instantly open any folder, project, or file inside VS Code (`code`), Cursor, Trae, or Windsurf directly from natural language requests.
-- **📝 Fast Code Editing & Reading** — Active code file detection and fast overwriting with `fs_read_active_file` and `fs_edit_file` to edit code in real-time with permission approval.
-- **🌐 Isolated Browser Agent (MCP)** — Seamless web automation (clicking, typing, creating notes like Google Keep) using an isolated Chromium context that runs perfectly on Wayland, X11, macOS, and Windows.
-- **🔒 Permission Engine** — Every sensitive action shows a plan, command, reason, and risk level before execution. You approve or cancel.
-- **⚡ Global Hotkey** — Launch instantly with `Super+Space`.
-- **🎨 Premium UI** — Tokyo Night theme with glassmorphism header, smooth entry stagger animations for messages, and pulse thinking loaders.
+> **Platform Availability:** Fully supported on **Linux** & **macOS** 🐧 🍎 *(Windows builds provided upon request 🪟)*.
 
 ---
 
-## 🆚 Comparison: Sentinel AI vs Other Assistants
+## ✨ Core Features
 
-| Feature / Metric | 🛡️ Sentinel AI | 💬 ChatGPT / Claude Web | 💻 GitHub Copilot | 🏠 Local LLMs (Ollama) |
-| :--- | :--- | :--- | :--- | :--- |
-| **System-wide Integration** | **Full** (Files, Terminal, Apps) | **None** (Browser only) | **Limited** (Inside IDE) | **None** (CLI / API only) |
-| **Active File Reading/Writing** | **Yes** (With permissions) | ❌ No | ⚠️ Inside IDE only | ❌ No |
-| **Multi-IDE Launcher** | **Yes** (VS Code, Cursor, Trae) | ❌ No | ❌ No | ❌ No |
-| **Hands-free Web Automation** | **Yes** (Isolated Chromium MCP) | ❌ No | ❌ No | ❌ No |
-| **Speed & Indexing** | **Instant** (Spotlight / PowerShell) | ❌ No | ❌ No | ⚠️ Slow recursion |
-| **Privacy & Control** | **Gatekeeper Permission Dialog** | ⚠️ Closed Cloud | ⚠️ Telemetry | **High** (Local but dumb) |
-
-### Pros of Sentinel AI:
-1. **Total System Authority**: Unlike web apps, Sentinel AI interacts directly with shell environments, browser processes, and folder paths.
-2. **Contextual Awareness**: It automatically parses what active project you are looking at, eliminating copy-pasting code snippets.
-3. **Safety First**: High-risk commands (like deleting directories, running scripts, pushing git commits) are stopped by a visual permission dialog.
+| Feature | Description |
+| :------ | :---------- |
+| **⌨️ Keyboard-First** | Global hotkey (`Super+Space` / `Alt+Space`). Mouse is never required. |
+| **📌 Workspace Context Badges** | Attach files or folders as active context badges via the `+` file manager button, CLI (`sentinelai .`), or natural language ("open X in workspace"). Click badges to open in OS file manager. |
+| **💻 Local CLI Integration** | Run `sentinelai .` from any terminal tab to focus Sentinel AI and automatically pin your working directory. |
+| **📁 Multi-IDE Launcher** | Open projects in VS Code (`code`), Cursor, Trae, Antigravity / Antigravity IDE, or Windsurf directly from natural language prompts. |
+| **🧠 Active Window Context** | Automatically senses active window title, app name, and URL context. |
+| **📝 Fast Code Editing & Reading** | Read active editor files in real-time and execute precision single-file overwrites with user permission approval. |
+| **🌐 Isolated Browser Agent (MCP)** | Full web automation (clicking, typing, DOM parsing) in an isolated Chromium context. |
+| **🔒 Permission Engine** | Safe execution mode — shows action plan, command details, reason, and risk rating before running sensitive actions. |
+| **🎨 Premium Dark UI** | Tokyo Night theme with glassmorphism, smooth animations, and pulse loaders. |
 
 ---
 
-## 🚀 Quick Start
+## 💻 Local CLI (`sentinelai .`)
+
+Sentinel AI includes a built-in CLI for instant terminal workflow integration:
 
 ```bash
-# Clone the repository
-git clone https://github.com/ShoaaibTaimur/sentinel_ai.git
-cd sentinel_ai
+# Installed automatically via install.sh or desktop package.
+# (If developing from source codebase, run `npm link` inside `main/`)
 
-# Install dependencies
-npm install
+# Navigate to any project or folder in your terminal
+cd ~/my-awesome-project
 
-# Start in dev mode
-npm run dev
+# Instantly focus Sentinel AI and pin the directory as a workspace context badge
+sentinelai .
 ```
-
----
-
-## 🛠️ Tech Stack & Compatibility
-
-Sentinel AI is designed to support **Windows**, **macOS**, and **Linux** out of the box.
-
-| Layer | Windows | macOS | Linux |
-| :--- | :--- | :--- | :--- |
-| **Window/CWD Hook** | `active-win` | `active-win` + AppleScript | `active-win` (Wayland/X11 check) |
-| **Fast Search** | PowerShell Indexer | Spotlight (`mdfind`) | Native `find` exclusions |
-| **IDE Launcher** | `cmd.exe` / `powershell` | Shell exec | Wayland desktop portal / `exec` |
-| **Automated Browser** | Chromium | Chromium | Chromium (X11 / Wayland sandbox) |
 
 ---
 
@@ -73,45 +45,77 @@ Sentinel AI is designed to support **Windows**, **macOS**, and **Linux** out of 
 
 ```
 sentinel-ai/
-├── main/                 # Electron main process (v1.0)
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── index.ts        # App Entry & Hotkey registration
-│   │   │   ├── ipc/            # IPC handlers (AI prompt, permissions, context)
-│   │   │   └── plugins/        # System tools: filesystem, applications, gui
-│   │   └── renderer/           # React Chat Desktop Shell (Tokyo Night Theme)
-├── frontend/             # Vite + React + TS Marketing Landing Page
-│   ├── src/
-│   │   ├── App.tsx             # Marketing Hero, Features, Comparison grid
-│   │   └── index.css           # Tokyo Night CSS tokens & custom animations
-└── start.sh
+├── main/                 # 🖥️ Electron desktop app (React + Vite + TypeScript)
+│   ├── bin/sentinel.js   #   └─ Local CLI executable (sentinelai .)
+│   ├── src/main/         #   └─ Main process: IPC handlers, CLI socket, plugins
+│   ├── src/renderer/     #   └─ React chat UI shell
+│   └── package.json
+├── frontend/             # 🌐 Marketing landing page (Vite + React + TS)
+│   ├── src/              #   └─ Hero, Features, Comparisons
+│   └── package.json
+├── .github/workflows/    # ⚙️ GitHub Actions CI/CD (Auto-builds .deb, .AppImage, .dmg, .exe)
+├── CONTEXT.md            # 📘 Developer context for AI models
+└── start.sh              # 🚀 Dev startup script
 ```
 
 ---
 
-## 🗺️ Roadmap
+## 🚀 Quick Start (Development)
 
-| Phase | Description | Status |
-| :--- | :--- | :--- |
+```bash
+# 1. Clone repository
+git clone https://github.com/ShoaaibTaimur/sentinel_ai.git
+cd sentinel_ai
+
+# 2. Run Desktop App locally
+cd main
+npm install
+npm run dev
+
+# 3. (Optional) Run Landing Page locally
+cd ../frontend
+npm install
+npm run dev
+```
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Desktop Application | Marketing Website |
+| :---- | :------------------ | :---------------- |
+| **Framework** | Electron + React + Vite | Vite + React + TypeScript |
+| **Language** | TypeScript | TypeScript |
+| **Styling** | Vanilla CSS (Tokyo Night theme) | Vanilla CSS + Animations |
+| **IPC Communication** | Electron IPC + Unix Domain Sockets | — |
+| **AI Integration** | OpenCode Zen AI SDK | — |
+
+---
+
+## 🗺️ Development Roadmap
+
+| Phase | Feature / Milestone | Status |
+| :---: | :------------------ | :----: |
 | 1 | Project scaffold (electron-vite, TS, hotkey) | ✅ Done |
-| 2 | UI shell (TopBar, BottomBar, Sidebar, etc.) | ✅ Done |
-| 3 | AI provider — OpenCode Zen + model switcher | ✅ Done |
-| 4 | Permission engine | ✅ Done |
-| 5 | Context awareness (active-win) | ✅ Done |
-| 6 | System Indexing & Platform Compatibility | ✅ Done |
-| 7 | Plugins (fs, terminal, git, apps) | ✅ Done |
-| 8 | Notification system (toast) | ✅ Done |
-| 9 | Conversation history | ⬜ Planned |
-| 10 | Installer (`npx @sentinel-ai/install`) | ⬜ Planned |
+| 2 | UI shell & Tokyo Night design system | ✅ Done |
+| 3 | AI provider & OpenCode Zen model switcher | ✅ Done |
+| 4 | Permission engine for safe execution | ✅ Done |
+| 5 | Active window context awareness (`active-win`) | ✅ Done |
+| 6 | System Indexing & Multi-IDE launcher (VS Code, Cursor, Trae, Antigravity, Windsurf) | ✅ Done |
+| 7 | Plugins (fs, terminal, git, apps, mcp-browser) | ✅ Done |
+| 8 | Workspace Context Badges (`+` picker & `sentinelai .` CLI socket) | ✅ Done |
+| 9 | GitHub Actions auto-release workflow (`v*` tag automated builds) | ✅ Done |
+| 10 | Standalone installers & auto-updater | ⬜ Planned |
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+MIT License — see [LICENSE](main/LICENSE) for details.
 
 ---
 
 <p align="center">
-  <strong>🛡️ Sentinel AI — Your desktop, intelligent.</strong>
+  <strong>🛡️ Sentinel AI — Your desktop, intelligent.</strong><br />
+  Designed & Developed by <a href="https://taimur.dev">Md Shoaaib Taimur</a>
 </p>

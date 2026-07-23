@@ -20,6 +20,8 @@ const api = {
 
   // Context
   getContext: () => ipcRenderer.invoke('context:get'),
+  selectContextPath: () => ipcRenderer.invoke('context:selectPath'),
+  openPathInOS: (path: string) => ipcRenderer.invoke('context:openPathInOS', path),
 
   // Permissions
   respondPermission: (id: string, result: 'allow' | 'always' | 'deny') =>

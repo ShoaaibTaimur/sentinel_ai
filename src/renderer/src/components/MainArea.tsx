@@ -66,6 +66,34 @@ export default function MainArea({
   const [alwaysAllowed, setAlwaysAllowed] = useState<string[]>([])
   const [startOnLogin, setStartOnLogin] = useState(false)
   const [statusText, setStatusText] = useState<string | null>(null)
+  const [pinnedContexts, setPinnedContexts] = useState<Array<{ path: string; name: string; isDir: boolean }>>([])
+
+  const onAttachContext = useCallback(async () => {
+    const item = await window.sentinel.selectContextPath()
+    if (item) {
+      setPinnedContexts(prev => {
+        if (prev.some(p => p.path === item.path)) return prev
+        return [...prev, item]
+      })
+      addToast(`📌 Attached: ${item.name}`, 'info')
+    }
+  }, [addToast])
+
+  const onRemovePinnedContext = useCallback((targetPath: string) => {
+    setPinnedContexts(prev => prev.filter(p => p.path !== targetPath))
+  }, [])
+
+  const onOpenPinnedContext = useCallback(async (targetPath: string) => {
+    await window.sentinel.openPathInOS(targetPath)
+  }, [])
+
+  const onPathPinnedFromIPC = useCallback((item: { path: string; name: string; isDir: boolean }) => {
+    setPinnedContexts(prev => {
+      if (prev.some(p => p.path === item.path)) return prev
+      return [...prev, item]
+    })
+    addToast(`📌 Attached: ${item.name}`, 'info')
+  }, [addToast])
 
   const loadAlwaysAllowed = useCallback(async () => {
     const list = await window.sentinel.getAlwaysAllow()
@@ -227,9 +255,10 @@ export default function MainArea({
       window.sentinel.on('ai:usage', onUsage as (...args: unknown[]) => void),
       window.sentinel.on('chat:clear', (() => { setStatusText(null); onClear() }) as (...args: unknown[]) => void),
       window.sentinel.on('command:getContext', onCtxGet as (...args: unknown[]) => void),
+      window.sentinel.on('context:pathPinned', onPathPinnedFromIPC as (...args: unknown[]) => void),
     ]
     return () => cleanups.forEach(fn => fn())
-  }, [onToken, onDone, onError, onStatus, onUsage, onClear, onCtxGet])
+  }, [onToken, onDone, onError, onStatus, onUsage, onClear, onCtxGet, onPathPinnedFromIPC])
 
   const handleCancel = useCallback(async () => {
     setLoading(false)
@@ -348,6 +377,12 @@ export default function MainArea({
     }
 
     const history = validMessages.map(m => ({ role: m.role as 'user' | 'assistant' | 'system', content: m.content }))
+
+    if (pinnedContexts.length > 0 && history.length > 0 && history[history.length - 1].role === 'user') {
+      const pinnedList = pinnedContexts.map(c => `- "${c.path}" (${c.isDir ? 'directory' : 'file'})`).join('\n')
+      history[history.length - 1].content = `${history[history.length - 1].content}\n\n[Active Attached Context Locations:\n${pinnedList}\nNote: Use these exact target locations directly without searching.]`
+    }
+
     // Fire-and-forget: response comes via ai:done event
     window.sentinel.chat(history).catch((err: unknown) => {
       console.error('chat error', err)
@@ -539,7 +574,7 @@ export default function MainArea({
               <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
                 <img src={logoUrl} alt="Sentinel AI" style={{ width: '42px', height: '42px' }} />
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>Sentinel AI v1.0.3</h3>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>Sentinel AI v1.0.4</h3>
                   <span style={{ fontSize: '12.5px', color: 'var(--text-dim)' }}>Keyboard-first, system-wide desktop AI assistant</span>
                 </div>
               </div>
@@ -663,7 +698,42 @@ export default function MainArea({
       </div>
 
       <div className="prompt-area">
+        {pinnedContexts.length > 0 && (
+          <div className="pinned-context-bar">
+            {pinnedContexts.map(ctx => (
+              <div 
+                key={ctx.path} 
+                className="pinned-context-badge"
+                onClick={() => onOpenPinnedContext(ctx.path)}
+                title={`Click to open ${ctx.path} in OS File Manager`}
+              >
+                <span className="pinned-badge-icon">{ctx.isDir ? '📁' : '📄'}</span>
+                <span className="pinned-badge-name">{ctx.name}</span>
+                <span 
+                  className="pinned-badge-remove"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onRemovePinnedContext(ctx.path)
+                  }}
+                  title="Remove attachment"
+                >
+                  ×
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="prompt-wrap" onClick={() => inputRef.current?.focus()}>
+          <button
+            className="btn-attach-context"
+            onClick={(e) => {
+              e.stopPropagation()
+              onAttachContext()
+            }}
+            title="Attach file or directory to chat context"
+          >
+            +
+          </button>
           <textarea
             ref={inputRef}
             className="prompt-input"

@@ -5,6 +5,7 @@ import { setupHotkey } from './hotkey'
 import { setupStore } from './store'
 import { setupIPC } from './ipc'
 import { startBackgroundService } from './background-service'
+import { setupCLIServer } from './cli-server'
 
 import { execSync } from 'child_process'
 import os from 'os'
@@ -133,6 +134,7 @@ app.whenReady().then(() => {
   setupHotkey(win)
   setupIPC(win)
   startBackgroundService(win)
+  setupCLIServer(win)
 
   if (win) {
     win.show()
