@@ -46,7 +46,7 @@ case "${OS}" in
 esac
 
 echo "⚡ Installing 'sentinelai' CLI command..."
-CLI_URL="https://raw.githubusercontent.com/${REPO}/main/main/bin/sentinel.js"
+CLI_URL="https://raw.githubusercontent.com/${REPO}/main/bin/sentinel.js"
 if [ -w "/usr/local/bin" ]; then
   curl -fsSL "${CLI_URL}" -o /usr/local/bin/sentinelai
   chmod +x /usr/local/bin/sentinelai
